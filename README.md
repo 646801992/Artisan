@@ -7,3 +7,8 @@ Crafting Automation Plugin/Helper for FFXIV
 Repo Url: 
 
 `https://love.puni.sh/ment.json`
+
+暂时摆了，Y佬汉化：  
+```
+https://github.com/Yarukon/Artisan
+```
