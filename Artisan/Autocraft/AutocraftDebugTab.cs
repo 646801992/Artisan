@@ -29,15 +29,15 @@ namespace Artisan.Autocraft
 
         internal static void Draw()
         {
-            ImGui.Checkbox("Debug logging", ref Debug);
-            if (ImGui.CollapsingHeader("Crafter's food"))
+            ImGui.Checkbox("调试日志", ref Debug);
+            if (ImGui.CollapsingHeader("所有能工巧匠食物"))
             {
                 foreach (var x in ConsumableChecker.GetFood())
                 {
                     ImGuiEx.Text($"{x.Id}: {x.Name}");
                 }
             }
-            if (ImGui.CollapsingHeader("Crafter's food in inventory"))
+            if (ImGui.CollapsingHeader("背包内的工匠食物"))
             {
                 foreach (var x in ConsumableChecker.GetFood(true))
                 {
@@ -47,7 +47,7 @@ namespace Artisan.Autocraft
                     }
                 }
             }
-            if (ImGui.CollapsingHeader("Crafter's HQ food in inventory"))
+            if (ImGui.CollapsingHeader("背包内的HQ工匠食物"))
             {
                 foreach (var x in ConsumableChecker.GetFood(true, true))
                 {
@@ -57,14 +57,14 @@ namespace Artisan.Autocraft
                     }
                 }
             }
-            if (ImGui.CollapsingHeader("Crafter's pots"))
+            if (ImGui.CollapsingHeader("所有能工巧匠药水"))
             {
                 foreach (var x in ConsumableChecker.GetPots())
                 {
                     ImGuiEx.Text($"{x.Id}: {x.Name}");
                 }
             }
-            if (ImGui.CollapsingHeader("Crafter's pots in inventory"))
+            if (ImGui.CollapsingHeader("背包内的工匠药水"))
             {
                 foreach (var x in ConsumableChecker.GetPots(true))
                 {
@@ -74,7 +74,7 @@ namespace Artisan.Autocraft
                     }
                 }
             }
-            if (ImGui.CollapsingHeader("Crafter's HQ pots in inventory"))
+            if (ImGui.CollapsingHeader("背包内的HQ工匠药水"))
             {
                 foreach (var x in ConsumableChecker.GetPots(true, true))
                 {
@@ -84,14 +84,14 @@ namespace Artisan.Autocraft
                     }
                 }
             }
-            if (ImGui.CollapsingHeader("Manuals"))
+            if (ImGui.CollapsingHeader("工程学指南"))
             {
                 foreach (var x in ConsumableChecker.GetManuals())
                 {
                     ImGuiEx.Text($"{x.Id}: {x.Name}");
                 }
             }
-            if (ImGui.CollapsingHeader("Manuals in inventory"))
+            if (ImGui.CollapsingHeader("背包内的工程学指南"))
             {
                 foreach (var x in ConsumableChecker.GetManuals(true))
                 {
@@ -101,14 +101,14 @@ namespace Artisan.Autocraft
                     }
                 }
             }
-            if (ImGui.CollapsingHeader("Squadron Manuals"))
+            if (ImGui.CollapsingHeader("军用工程学指南"))
             {
                 foreach (var x in ConsumableChecker.GetSquadronManuals())
                 {
                     ImGuiEx.Text($"{x.Id}: {x.Name}");
                 }
             }
-            if (ImGui.CollapsingHeader("SquadronManuals in inventory"))
+            if (ImGui.CollapsingHeader("背包内的军用工程学指南"))
             {
                 foreach (var x in ConsumableChecker.GetSquadronManuals(true))
                 {
@@ -119,62 +119,62 @@ namespace Artisan.Autocraft
                 }
             }
 
-            if (ImGui.CollapsingHeader("Crafting Stats"))
+            if (ImGui.CollapsingHeader("制作状态"))
             {
                 CurrentCraft.BestSynthesis(out var act, true);
-                ImGui.Text($"Control: {CharacterInfo.Control()}");
-                ImGui.Text($"Craftsmanship: {CharacterInfo.Craftsmanship()}");
-                ImGui.Text($"Current Durability: {CurrentCraft.CurrentDurability}");
-                ImGui.Text($"Max Durability: {CurrentCraft.MaxDurability}");
-                ImGui.Text($"Current Progress: {CurrentCraft.CurrentProgress}");
-                ImGui.Text($"Max Progress: {CurrentCraft.MaxProgress}");
-                ImGui.Text($"Current Quality: {CurrentCraft.CurrentQuality}");
-                ImGui.Text($"Max Quality: {CurrentCraft.MaxQuality}");
-                ImGui.Text($"Item name: {CurrentCraft.ItemName}");
-                ImGui.Text($"Current Condition: {CurrentCraft.CurrentCondition}");
-                ImGui.Text($"Current Step: {CurrentCraft.CurrentStep}");
-                ImGui.Text($"Current Quick Synth Step: {CurrentCraft.QuickSynthCurrent}");
-                ImGui.Text($"Max Quick Synth Step: {CurrentCraft.QuickSynthMax}");
-                ImGui.Text($"GS+ByregotCombo: {CurrentCraft.GreatStridesByregotCombo()}");
-                ImGui.Text($"Base Quality: {CurrentCraft.BaseQuality()}");
-                ImGui.Text($"Predicted Quality: {CurrentCraft.CalculateNewQuality(CurrentCraft.CurrentRecommendation)}");
-                ImGui.Text($"Predicted Progress: {CurrentCraft.CalculateNewProgress(CurrentCraft.CurrentRecommendation)}");
-                ImGui.Text($"Macro Step: {CurrentCraft.MacroStep}");
-                ImGui.Text($"Collectibility Low: {CurrentCraft.CollectabilityLow}");
-                ImGui.Text($"Collectibility Mid: {CurrentCraft.CollectabilityMid}");
-                ImGui.Text($"Collectibility High: {CurrentCraft.CollectabilityHigh}");
-                ImGui.Text($"Crafting State: {CurrentCraft.State}");
-                ImGui.Text($"Can Finish: {CurrentCraft.CanFinishCraft(act)}");
-                ImGui.Text($"Current Rec: {CurrentCraft.RecommendationName}");
-                ImGui.Text($"Previous Action: {CurrentCraft.PreviousAction.NameOfAction()}");
-                ImGui.Text($"Tasks?: {Artisan.Tasks.Count}");
+                ImGui.Text($"加工精度: {CharacterInfo.Control()}");
+                ImGui.Text($"作业精度: {CharacterInfo.Craftsmanship()}");
+                ImGui.Text($"当前耐久: {CurrentCraft.CurrentDurability}");
+                ImGui.Text($"最大耐久: {CurrentCraft.MaxDurability}");
+                ImGui.Text($"当前进展: {CurrentCraft.CurrentProgress}");
+                ImGui.Text($"最大进展: {CurrentCraft.MaxProgress}");
+                ImGui.Text($"当前品质: {CurrentCraft.CurrentQuality}");
+                ImGui.Text($"最大品质: {CurrentCraft.MaxQuality}");
+                ImGui.Text($"物品名称e: {CurrentCraft.ItemName}");
+                ImGui.Text($"当前状态: {CurrentCraft.CurrentCondition}");
+                ImGui.Text($"当前步骤: {CurrentCraft.CurrentStep}");
+                ImGui.Text($"当前快速制作步骤: {CurrentCraft.QuickSynthCurrent}");
+                ImGui.Text($"最大快速制作步骤: {CurrentCraft.QuickSynthMax}");
+                ImGui.Text($"阔步+比尔格: {CurrentCraft.GreatStridesByregotCombo()}");
+                ImGui.Text($"初期品质: {CurrentCraft.BaseQuality()}");
+                ImGui.Text($"预期品质: {CurrentCraft.CalculateNewQuality(CurrentCraft.CurrentRecommendation)}");
+                ImGui.Text($"预期进展: {CurrentCraft.CalculateNewProgress(CurrentCraft.CurrentRecommendation)}");
+                ImGui.Text($"当前宏步骤: {CurrentCraft.MacroStep}");
+                ImGui.Text($"低收藏价值: {CurrentCraft.CollectabilityLow}");
+                ImGui.Text($"中收藏价值: {CurrentCraft.CollectabilityMid}");
+                ImGui.Text($"高收藏价值: {CurrentCraft.CollectabilityHigh}");
+                ImGui.Text($"制作状态: {CurrentCraft.State}");
+                ImGui.Text($"可以完成: {CurrentCraft.CanFinishCraft(act)}");
+                ImGui.Text($"当前记录: {CurrentCraft.RecommendationName}");
+                ImGui.Text($"上一步技能: {CurrentCraft.PreviousAction.NameOfAction()}");
+                ImGui.Text($"任务？: {Artisan.Tasks.Count}");
             }
 
-            if (ImGui.CollapsingHeader("Spiritbonds"))
+            if (ImGui.CollapsingHeader("魔晶石精制"))
             {
-                ImGui.Text($"Weapon Spiritbond: {Spiritbond.Weapon}");
-                ImGui.Text($"Off-hand Spiritbond: {Spiritbond.Offhand}");
-                ImGui.Text($"Helm Spiritbond: {Spiritbond.Helm}");
-                ImGui.Text($"Body Spiritbond: {Spiritbond.Body}");
-                ImGui.Text($"Hands Spiritbond: {Spiritbond.Hands}");
-                ImGui.Text($"Legs Spiritbond: {Spiritbond.Legs}");
-                ImGui.Text($"Feet Spiritbond: {Spiritbond.Feet}");
-                ImGui.Text($"Earring Spiritbond: {Spiritbond.Earring}");
-                ImGui.Text($"Neck Spiritbond: {Spiritbond.Neck}");
-                ImGui.Text($"Wrist Spiritbond: {Spiritbond.Wrist}");
-                ImGui.Text($"Ring 1 Spiritbond: {Spiritbond.Ring1}");
-                ImGui.Text($"Ring 2 Spiritbond: {Spiritbond.Ring2}");
+                ImGui.Text($"主手 精炼度: {Spiritbond.Weapon}");
+                ImGui.Text($"副手 精炼度: {Spiritbond.Offhand}");
+                ImGui.Text($"头部 精炼度: {Spiritbond.Helm}");
+                ImGui.Text($"身体 精炼度: {Spiritbond.Body}");
+                ImGui.Text($"手臂 精炼度: {Spiritbond.Hands}");
+                ImGui.Text($"腿部 精炼度: {Spiritbond.Legs}");
+                ImGui.Text($"脚部 精炼度: {Spiritbond.Feet}");
+                ImGui.Text($"耳部 精炼度: {Spiritbond.Earring}");
+                ImGui.Text($"颈部 精炼度: {Spiritbond.Neck}");
+                ImGui.Text($"腕部 精炼度: {Spiritbond.Wrist}");
+                ImGui.Text($"右指 精炼度: {Spiritbond.Ring1}");
+                ImGui.Text($"左指 精炼度: {Spiritbond.Ring2}");
 
-                ImGui.Text($"Spiritbond Ready Any: {Spiritbond.IsSpiritbondReadyAny()}");
+                ImGui.Text($"已经满精炼的装备: {Spiritbond.IsSpiritbondReadyAny()}");
 
             }
 
-            if (ImGui.CollapsingHeader("Quests"))
+            if (ImGui.CollapsingHeader("任务"))
             {
                 QuestManager* qm = QuestManager.Instance();
                 foreach (var quest in qm->DailyQuestsSpan)
                 {
-                    ImGui.TextWrapped($"Quest ID: {quest.QuestId}, Sequence: {QuestManager.GetQuestSequence(quest.QuestId)}, Name: {quest.QuestId.NameOfQuest()}, Flags: {quest.Flags}");
+                    ImGui.TextWrapped($"任务ID: {quest.QuestId}, 序列: {QuestManager.GetQuestSequence(quest.QuestId)}, 名称: {quest.QuestId.NameOfQuest()}, Flags: {quest.Flags}");
                 }
 
             }
@@ -219,21 +219,21 @@ namespace Artisan.Autocraft
             }
             ImGui.Separator();
 
-            if (ImGui.Button("Repair all"))
+            if (ImGui.Button("修复所有装备"))
             {
                 RepairManager.ProcessRepair();
             }
-            ImGuiEx.Text($"Gear condition: {RepairManager.GetMinEquippedPercent()}");
+            ImGuiEx.Text($"装备耐久: {RepairManager.GetMinEquippedPercent()}");
 
-            ImGui.Text($"Endurance Item: {Handler.RecipeID} {Handler.RecipeName}");
-            if (ImGui.Button($"Open Endurance Item"))
+            ImGui.Text($"持续制作项目: {Handler.RecipeID} {Handler.RecipeName}");
+            if (ImGui.Button($"打开持续制作项目"))
             {
                 CraftingLists.CraftingListFunctions.OpenRecipeByID((uint)Handler.RecipeID);
             }
 
-            ImGui.InputInt("Debug Value", ref DebugValue);
+            ImGui.InputInt("调试值", ref DebugValue);
 
-            if (ImGui.Button("Accept Leve (Use Debug Value for ID)"))
+            if (ImGui.Button("接受等级（使用调试值作为 ID）"))
             {
                 if (Svc.GameGui.GetAddonByName("GuildLeve") != IntPtr.Zero)
                 {
@@ -242,19 +242,19 @@ namespace Artisan.Autocraft
                 }
             }
 
-            if (ImGui.Button($"Open And Quick Synth"))
+            if (ImGui.Button($"打开快速制作"))
             {
                 CurrentCraft.QuickSynthItem(DebugValue);
             }
-            if (ImGui.Button($"Close Quick Synth Window"))
+            if (ImGui.Button($"关闭快速制作窗口"))
             {
                 CurrentCraft.CloseQuickSynthWindow();
             }
-            if (ImGui.Button($"Open Materia Window"))
+            if (ImGui.Button($"打开魔晶石窗口"))
             {
                 Spiritbond.OpenMateriaMenu();
             }
-            if (ImGui.Button($"Extract First Materia"))
+            if (ImGui.Button($"提取第一个魔晶石"))
             {
                 Spiritbond.ExtractFirstMateria();
             }

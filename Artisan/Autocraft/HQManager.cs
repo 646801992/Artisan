@@ -71,7 +71,7 @@ namespace Artisan.Autocraft
 
                     if (nqMaterials + hqMaterials < requiredMaterials)
                     {
-                        if (AutocraftDebugTab.Debug) PluginLog.Verbose("Insufficient Materials");
+                        if (AutocraftDebugTab.Debug) PluginLog.Verbose("材料不足");
                         Handler.Enable = false;
                         InsufficientMaterials = true;
                         dataFinalized = true;
@@ -85,7 +85,7 @@ namespace Artisan.Autocraft
                         {
                             NextCheckAt = Environment.TickCount64 + 100;
                             ClickRecipeNote.Using((IntPtr)addon).Material(i, true);
-                            PluginLog.Debug($"Setting HQ {i}");
+                            PluginLog.Debug($"设定HQ {i}");
                             dataFinalized = false;
                             return true;
                         }
@@ -96,7 +96,7 @@ namespace Artisan.Autocraft
                         {
                             NextCheckAt = Environment.TickCount64 + 100;
                             ClickRecipeNote.Using((IntPtr)addon).Material(i, false);
-                            PluginLog.Debug($"Setting NQ {i}");
+                            PluginLog.Debug($"设定NQ {i}");
                             dataFinalized = false;
                             return true;
                         }

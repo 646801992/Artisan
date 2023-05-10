@@ -228,7 +228,7 @@ namespace Artisan.Autocraft
                 {
                     if (Handler.Enable)
                     {
-                        DuoLog.Error("Food not found. Disabling Endurance.");
+                        DuoLog.Error("没有找到食物，禁用持续模式。");
                         Handler.Enable = false;
                     }
                     fooded = !Service.Configuration.AbortIfNoFoodPot;
@@ -246,7 +246,7 @@ namespace Artisan.Autocraft
                 {
                     if (Handler.Enable)
                     {
-                        DuoLog.Error("Potion not found. Disabling Endurance.");
+                        DuoLog.Error("没有找到药水，禁用持续模式。");
                         Handler.Enable = false;
                     }
                     potted = !Service.Configuration.AbortIfNoFoodPot;
@@ -266,7 +266,7 @@ namespace Artisan.Autocraft
                     {
                         if (Handler.Enable)
                         {
-                            DuoLog.Error("Manual not found. Disabling Endurance.");
+                            DuoLog.Error("没有找到工程学指南，禁用持续模式。");
                             Handler.Enable = false;
                         }
                         manualed = !Service.Configuration.AbortIfNoFoodPot;
@@ -284,7 +284,7 @@ namespace Artisan.Autocraft
                     {
                         if (Handler.Enable)
                         {
-                            DuoLog.Error("Squadron Manual not found. Disabling Endurance.");
+                            DuoLog.Error("没有找到军用工程学指南，禁用持续模式。");
                             Handler.Enable = false;
                         }
                         squadronManualed = !Service.Configuration.AbortIfNoFoodPot;

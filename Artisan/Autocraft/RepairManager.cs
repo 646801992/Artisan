@@ -19,7 +19,7 @@ namespace Artisan.Autocraft
     {
         internal static void Repair()
         {
-            if (TryGetAddonByName<AddonRepair>("Repair", out var addon) && addon->AtkUnitBase.IsVisible && addon->RepairAllButton->IsEnabled && Throttler.Throttle(500))
+            if (TryGetAddonByName<AddonRepair>("修理", out var addon) && addon->AtkUnitBase.IsVisible && addon->RepairAllButton->IsEnabled && Throttler.Throttle(500))
             {
                 new ClickRepair((IntPtr)addon).RepairAll();
             }
@@ -27,7 +27,7 @@ namespace Artisan.Autocraft
 
         internal static void ConfirmYesNo()
         {
-            if(TryGetAddonByName<AddonRepair>("Repair", out var r) && 
+            if(TryGetAddonByName<AddonRepair>("修理", out var r) && 
                 r->AtkUnitBase.IsVisible && TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addon) && 
                 addon->AtkUnitBase.IsVisible && 
                 addon->YesButton->IsEnabled && 
@@ -55,13 +55,13 @@ namespace Artisan.Autocraft
             int repairPercent = CraftingList != null ? CraftingList.RepairPercent : Service.Configuration.RepairPercent;
             if (GetMinEquippedPercent() >= repairPercent)
             {
-                if (AutocraftDebugTab.Debug) PluginLog.Verbose("Condition good");
-                if (TryGetAddonByName<AddonRepair>("Repair", out var r) && r->AtkUnitBase.IsVisible)
+                if (AutocraftDebugTab.Debug) PluginLog.Verbose("状态良好");
+                if (TryGetAddonByName<AddonRepair>("修理", out var r) && r->AtkUnitBase.IsVisible)
                 {
-                    if (AutocraftDebugTab.Debug) PluginLog.Verbose("Repair visible");
+                    if (AutocraftDebugTab.Debug) PluginLog.Verbose("修理可见");
                     if (Throttler.Throttle(500))
                     {
-                        if (AutocraftDebugTab.Debug) PluginLog.Verbose("Closing repair window");
+                        if (AutocraftDebugTab.Debug) PluginLog.Verbose("关闭修复窗口");
                         Hotbars.actionManager->UseAction(ActionType.General, 6);
                     }
                     return false;
@@ -71,11 +71,11 @@ namespace Artisan.Autocraft
             }
             else
             {
-                if (AutocraftDebugTab.Debug) PluginLog.Verbose($"Condition bad, condition is {GetMinEquippedPercent()}, config is {Service.Configuration.RepairPercent}");
+                if (AutocraftDebugTab.Debug) PluginLog.Verbose($"状态不佳，状态是 {GetMinEquippedPercent()}, 设定是 {Service.Configuration.RepairPercent}");
                 if (use)
                 {
-                    if (AutocraftDebugTab.Debug) PluginLog.Verbose($"Doing repair");
-                    if (TryGetAddonByName<AddonRepair>("Repair", out var r) && r->AtkUnitBase.IsVisible)
+                    if (AutocraftDebugTab.Debug) PluginLog.Verbose($"执行修理");
+                    if (TryGetAddonByName<AddonRepair>("修理", out var r) && r->AtkUnitBase.IsVisible)
                     {
                         //PluginLog.Verbose($"Repair visible");
                         ConfirmYesNo();
@@ -83,10 +83,10 @@ namespace Artisan.Autocraft
                     }
                     else
                     {
-                        if (AutocraftDebugTab.Debug) PluginLog.Verbose($"Repair not visible");
+                        if (AutocraftDebugTab.Debug) PluginLog.Verbose($"修理不可见");
                         if (Throttler.Throttle(500))
                         {
-                            if (AutocraftDebugTab.Debug) PluginLog.Verbose($"Opening repair");
+                            if (AutocraftDebugTab.Debug) PluginLog.Verbose($"打开修理窗口");
                             Hotbars.actionManager->UseAction(ActionType.General, 6);
                         }
                     }
