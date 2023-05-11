@@ -13,7 +13,7 @@ namespace Artisan.UI
 {
     internal class QuestHelper : Window
     {
-        public QuestHelper() : base("Quest Helper###QuestHelper", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar)
+        public QuestHelper() : base("任务辅助###QuestHelper", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar)
         {
             IsOpen = true;
             ShowCloseButton = false;
@@ -52,7 +52,7 @@ namespace Artisan.UI
             bool hasIngredientsAny = QuestList.HasIngredientsForAny();
             if (hasIngredientsAny)
             {
-                ImGui.Text($"Quest Helper (click to open recipe)");
+                ImGui.Text($"任务辅助（单击打开配方）");
                 foreach (var quest in QuestList.Quests)
                 {
                     if (QuestList.IsOnQuest((ushort)quest.Key))
@@ -81,7 +81,7 @@ namespace Artisan.UI
             bool isOnSayQuest = QuestList.IsOnSayQuest();
             if (isOnSayQuest)
             {
-                ImGui.Text($"Quest Helper (click to say)");
+                ImGui.Text($"任务辅助（单击发送/s ）");
                 foreach (var quest in QuestManager.Instance()->DailyQuestsSpan)
                 {
                     string message = QuestList.GetSayQuestString(quest.QuestId);
@@ -97,14 +97,14 @@ namespace Artisan.UI
             bool isOnEmoteQuest = QuestList.IsOnEmoteQuest();
             if (isOnEmoteQuest)
             {
-                ImGui.Text("Quest Helper (click to target and emote)");
+                ImGui.Text("任务辅助（单击选择并发送情感动作）");
                 foreach (var quest in QuestManager.Instance()->DailyQuestsSpan)
                 {
                     if (quest.IsCompleted) continue;
 
                     if (QuestList.EmoteQuests.TryGetValue(quest.QuestId, out var data))
                     {
-                        if (ImGui.Button($@"Target {LuminaSheets.ENPCResidentSheet[data.NPCDataId].Singular.ExtractText()} and do {data.Emote}"))
+                        if (ImGui.Button($@"选中 {LuminaSheets.ENPCResidentSheet[data.NPCDataId].Singular.ExtractText()} 并做 {data.Emote}"))
                         {
                             QuestList.DoEmoteQuest(quest.QuestId);
                         }
@@ -115,7 +115,7 @@ namespace Artisan.UI
                         {
                             if (QuestList.EmoteQuests.TryGetValue(9998, out var npc1))
                             {
-                                if (ImGui.Button($@"Target {LuminaSheets.ENPCResidentSheet[npc1.NPCDataId].Singular.ExtractText()} and do {npc1.Emote}"))
+                                if (ImGui.Button($@"选中 {LuminaSheets.ENPCResidentSheet[npc1.NPCDataId].Singular.ExtractText()} 并做 {npc1.Emote}"))
                                 {
                                     QuestList.DoEmoteQuest(9998);
                                 }
@@ -123,7 +123,7 @@ namespace Artisan.UI
 
                             if (QuestList.EmoteQuests.TryGetValue(9999, out var npc2))
                             {
-                                if (ImGui.Button($@"Target {LuminaSheets.ENPCResidentSheet[npc2.NPCDataId].Singular.ExtractText()} and do {npc2.Emote}"))
+                                if (ImGui.Button($@"选中 {LuminaSheets.ENPCResidentSheet[npc2.NPCDataId].Singular.ExtractText()} 并做 {npc2.Emote}"))
                                 {
                                     QuestList.DoEmoteQuest(9999);
                                 }

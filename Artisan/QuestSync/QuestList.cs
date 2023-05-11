@@ -422,6 +422,8 @@ namespace Artisan.QuestSync
                         return "Kupo-Nüsse für alle Helfer!";
                     case Dalamud.ClientLanguage.Japanese:
                         return "クポの実あるよ";
+                    case Dalamud.ClientLanguage.ChineseSimplified:
+                        return "有库啵果哦";
                 }
 
             }
@@ -436,6 +438,8 @@ namespace Artisan.QuestSync
                         return "Holladrio";
                     case Dalamud.ClientLanguage.Japanese:
                         return "ラリホー";
+                    case Dalamud.ClientLanguage.ChineseSimplified:
+                        return "啦哩吼";
                 }
             }
             if (questId == 4700)
@@ -450,6 +454,8 @@ namespace Artisan.QuestSync
                         return "Traummaschine";
                     case Dalamud.ClientLanguage.French:
                         return "rêves à gogo";
+                   // case Dalamud.ClientLanguage.ChineseSimplified:
+                   //     return "";        兔兔族任务
                 }
             }
             if (questId == 1497)
@@ -464,6 +470,8 @@ namespace Artisan.QuestSync
                         return "Sei eins mit dem Wind!";
                     case Dalamud.ClientLanguage.Japanese:
                         return "風のごとく！";
+                    case Dalamud.ClientLanguage.ChineseSimplified:
+                        return "乘风而起";
                 }
             }
             if (questId == 3104)
@@ -478,6 +486,8 @@ namespace Artisan.QuestSync
                         return "Große Flosse";
                     case Dalamud.ClientLanguage.Japanese:
                         return "おおなまずのまにまに";
+                    case Dalamud.ClientLanguage.ChineseSimplified:
+                        return "大鲶鱼保佑";
                 }
             }
             if (questId == 1515)
@@ -492,6 +502,8 @@ namespace Artisan.QuestSync
                         return "Ab durch die Wolken!";
                     case Dalamud.ClientLanguage.Japanese:
                         return "天を翔ける！";
+                    case Dalamud.ClientLanguage.ChineseSimplified:
+                        return "翱翔天际";
                 }
             }
             if (questId == 1507)
@@ -506,6 +518,8 @@ namespace Artisan.QuestSync
                         return "Hoch hinaus!";
                     case Dalamud.ClientLanguage.Japanese:
                         return "もっと高く！";
+                    case Dalamud.ClientLanguage.ChineseSimplified:
+                        return "展翅高飞";
                 }
             }
             if (questId == 1501)
@@ -520,6 +534,8 @@ namespace Artisan.QuestSync
                         return "Mögen deine Schwingen nie brechen!";
                     case Dalamud.ClientLanguage.Japanese:
                         return "折れぬ翼を！";
+                    case Dalamud.ClientLanguage.ChineseSimplified:
+                        return "不屈之翼";
                 }
             }
             if (questId == 1568)
@@ -534,6 +550,8 @@ namespace Artisan.QuestSync
                         return "Der unerfüllte Traum der Ixal!";
                     case Dalamud.ClientLanguage.Japanese:
                         return "果てぬ夢を！";
+                    case Dalamud.ClientLanguage.ChineseSimplified:
+                        return "追梦无限";
                 }
             }
 

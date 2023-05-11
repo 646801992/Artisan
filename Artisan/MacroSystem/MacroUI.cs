@@ -18,7 +18,7 @@ namespace Artisan.MacroSystem
         private static string _newMacroName = string.Empty;
         private static string renameMacro = string.Empty;
         private static bool _keyboardFocus;
-        private const string MacroNamePopupLabel = "Macro Name";
+        private const string MacroNamePopupLabel = "宏名称";
         private static Macro selectedMacro = new();
         private static int selectedActionIndex = -1;
         private static bool renameMode = false;

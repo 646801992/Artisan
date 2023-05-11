@@ -66,7 +66,7 @@ public unsafe class Artisan : IDalamudPlugin
         fm = new FontManager();
         Service.CommandManager.AddHandler(commandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Opens the Artisan menu.",
+            HelpMessage = "打开Artisan菜单。",
             ShowInHelp = true,
         });
 
@@ -100,7 +100,7 @@ public unsafe class Artisan : IDalamudPlugin
     {
         if (Svc.ClientState.ClientLanguage == Dalamud.ClientLanguage.Japanese) return;
 
-        PluginLog.Debug("Adding custom font");
+        PluginLog.Debug("添加自定义字体");
         string path = Path.Combine(Svc.PluginInterface.AssemblyLocation.DirectoryName!, "Fonts", "CaviarDreams_Bold.ttf");
         if (File.Exists(path))
         {
@@ -234,7 +234,7 @@ public unsafe class Artisan : IDalamudPlugin
         {
             if (Recipe is null && !warningMessage)
             {
-                DuoLog.Error("Warning: Your recipe cannot be parsed in Artisan. Please report this to the Discord with the recipe name and client language.");
+                DuoLog.Error("警告：您的配方无法在Artisan中解析，请将配方名称和客户端语言报告给 Discord。");
                 warningMessage = true;
             }
             else
@@ -255,7 +255,7 @@ public unsafe class Artisan : IDalamudPlugin
 
             if (CraftingListUI.Processing)
             {
-                Dalamud.Logging.PluginLog.Verbose("Advancing Crafting List");
+                Dalamud.Logging.PluginLog.Verbose("推进制作清单");
                 CraftingListFunctions.CurrentIndex++;
             }
 
@@ -267,7 +267,7 @@ public unsafe class Artisan : IDalamudPlugin
                 {
                     Service.Configuration.CraftingX = false;
                     Handler.Enable = false;
-                    DuoLog.Information("Craft X has completed.");
+                    DuoLog.Information("制作X次已完成。");
 
                 }
             }
@@ -408,7 +408,7 @@ public unsafe class Artisan : IDalamudPlugin
                             if (!Service.Configuration.DisableToasts)
                             {
                                 QuestToastOptions options = new() { IconId = newAct.Icon };
-                                Service.ToastGui.ShowQuest($"Use {newAct.Name}", options);
+                                Service.ToastGui.ShowQuest($"使用 {newAct.Name}", options);
                             }
 
                         }
@@ -417,7 +417,7 @@ public unsafe class Artisan : IDalamudPlugin
                             if (!Service.Configuration.DisableToasts)
                             {
                                 QuestToastOptions options = new() { IconId = normalAct.Icon };
-                                Service.ToastGui.ShowQuest($"Use {normalAct.Name}", options);
+                                Service.ToastGui.ShowQuest($"使用 {normalAct.Name}", options);
                             }
                         }
                     }
@@ -431,7 +431,7 @@ public unsafe class Artisan : IDalamudPlugin
                             if (!Service.Configuration.DisableToasts)
                             {
                                 QuestToastOptions options = new() { IconId = newAct.Icon };
-                                Service.ToastGui.ShowQuest($"Use {newAct.Name}", options);
+                                Service.ToastGui.ShowQuest($"使用 {newAct.Name}", options);
                             }
                         }
                         else
@@ -439,7 +439,7 @@ public unsafe class Artisan : IDalamudPlugin
                             if (!Service.Configuration.DisableToasts)
                             {
                                 QuestToastOptions options = new() { IconId = craftAction.Icon };
-                                Service.ToastGui.ShowQuest($"Use {craftAction.Name}", options);
+                                Service.ToastGui.ShowQuest($"使用 {craftAction.Name}", options);
                             }
                         }
                     }
@@ -456,7 +456,7 @@ public unsafe class Artisan : IDalamudPlugin
             }
             catch (Exception ex)
             {
-                Dalamud.Logging.PluginLog.Error(ex, "Crafting Step Change");
+                Dalamud.Logging.PluginLog.Error(ex, "制作步骤变化");
             }
         }
 

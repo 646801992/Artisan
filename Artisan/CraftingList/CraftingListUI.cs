@@ -241,7 +241,7 @@ namespace Artisan.CraftingLists
                             var loop = 1;
                             foreach (var item in CollectionsMarshal.AsSpan(selectedList.Items.Distinct().ToList()))
                             {
-                                var selected = ImGui.Selectable($"{loop}. {FilteredList[item].ItemResult.Value.Name.RawString} x{selectedList.Items.Count(x => x == item)} {(FilteredList[item].AmountResult > 1 ? $"({FilteredList[item].AmountResult * selectedList.Items.Count(x => x == item)} total)" : $"")}", selectedListItem == item);
+                                var selected = ImGui.Selectable($"{loop}. {FilteredList[item].ItemResult.Value.Name.RawString} x{selectedList.Items.Count(x => x == item)} {(FilteredList[item].AmountResult > 1 ? $"(共 {FilteredList[item].AmountResult * selectedList.Items.Count(x => x == item)} 个)" : $"")}", selectedListItem == item);
 
                                 if (selected)
                                 {
@@ -486,11 +486,11 @@ namespace Artisan.CraftingLists
                         {
                             if (GatherBuddy)
                             {
-                                ImGui.TextWrapped($"单击物品名称以复制到剪切板。\n按住Shift单击物品名称以对该物品执行GatherBuddy采集指令。\n按住Ctrl单击物品名称以对该物品执行道具检索指令。");
+                                ImGui.TextWrapped($"单击物品名称以复制到剪贴板。\n按住Shift单击物品名称以对该物品执行GatherBuddy采集指令。\n按住Ctrl单击物品名称以对该物品执行道具检索指令。");
                             }
                             else
                             {
-                                ImGui.TextWrapped($"单击物品名称以复制到剪切板。\n按住Ctrl单击物品名称以对该物品执行道具检索指令。\n安装GatherBuddy（主库）以获取更多功能。");
+                                ImGui.TextWrapped($"单击物品名称以复制到剪贴板。\n按住Ctrl单击物品名称以对该物品执行道具检索指令。\n安装GatherBuddy（主库）以获取更多功能。");
                             }
 
                             ImGui.Spacing();
@@ -591,7 +591,7 @@ namespace Artisan.CraftingLists
                                 if (ImGui.IsItemClicked() && !ImGui.GetIO().KeyShift && !ImGui.GetIO().KeyCtrl)
                                 {
                                     ImGui.SetClipboardText(name);
-                                    Notify.Success("名称已复制到剪切板。");
+                                    Notify.Success("名称已复制到剪贴板。");
                                 }
                                 ImGui.TableNextColumn();
                                 ImGui.Text($"{count}");
@@ -692,7 +692,7 @@ namespace Artisan.CraftingLists
                                 if (ImGui.IsItemClicked() && !ImGui.GetIO().KeyShift && !ImGui.GetIO().KeyCtrl)
                                 {
                                     ImGui.SetClipboardText(name);
-                                    Notify.Success("名称已复制到剪切板。");
+                                    Notify.Success("名称已复制到剪贴板。");
                                 }
                                 ImGui.TableNextColumn();
                                 ImGui.Text($"{count}");

@@ -52,30 +52,30 @@ namespace Artisan.UI
             {
                 Service.Framework.RunOnFrameworkThread(() => CraftingListFunctions.ProcessList(CraftingListUI.selectedList));
                 
-                if (ImGuiEx.AddHeaderIcon("OpenConfig", FontAwesomeIcon.Cog, new ImGuiEx.HeaderIconOptions() { Tooltip = "Open Config" }))
+                if (ImGuiEx.AddHeaderIcon("OpenConfig", FontAwesomeIcon.Cog, new ImGuiEx.HeaderIconOptions() { Tooltip = "打开设置" }))
                 {
                     P.PluginUi.Visible = true;
                 }
 
-                ImGui.Text($"Now Processing: {CraftingListUI.selectedList.Name}");
+                ImGui.Text($"当前进展: {CraftingListUI.selectedList.Name}");
                 ImGui.Separator();
                 ImGui.Spacing();
                 if (CraftingListUI.CurrentProcessedItem != 0)
                 {
-                    ImGuiEx.TextV($"Trying to craft: {CraftingListUI.FilteredList[CraftingListUI.CurrentProcessedItem].ItemResult.Value.Name.RawString}");
-                    ImGuiEx.TextV($"Overall Progress: {CraftingListFunctions.CurrentIndex + 1} / {CraftingListUI.selectedList.Items.Count}");
+                    ImGuiEx.TextV($"尝试制作: {CraftingListUI.FilteredList[CraftingListUI.CurrentProcessedItem].ItemResult.Value.Name.RawString}");
+                    ImGuiEx.TextV($"总体进展: {CraftingListFunctions.CurrentIndex + 1} / {CraftingListUI.selectedList.Items.Count}");
                 }
 
                 if (!CraftingListFunctions.Paused)
                 {
-                    if (ImGui.Button("Pause"))
+                    if (ImGui.Button("暂停"))
                     {
                         CraftingListFunctions.Paused = true;
                     }
                 }
                 else
                 {
-                    if (ImGui.Button("Resume"))
+                    if (ImGui.Button("恢复"))
                     {
                         if (CraftingListFunctions.RecipeWindowOpen())
                             CraftingListFunctions.CloseCraftingMenu();
@@ -87,7 +87,7 @@ namespace Artisan.UI
                 }
 
                 ImGui.SameLine();
-                if (ImGui.Button("Cancel"))
+                if (ImGui.Button("取消"))
                 {
                     CraftingListUI.Processing = false;
                 }
