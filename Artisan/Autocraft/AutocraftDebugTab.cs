@@ -133,8 +133,8 @@ namespace Artisan.Autocraft
                 ImGui.Text($"物品名称e: {CurrentCraft.ItemName}");
                 ImGui.Text($"当前状态: {CurrentCraft.CurrentCondition}");
                 ImGui.Text($"当前步骤: {CurrentCraft.CurrentStep}");
-                ImGui.Text($"当前快速制作步骤: {CurrentCraft.QuickSynthCurrent}");
-                ImGui.Text($"最大快速制作步骤: {CurrentCraft.QuickSynthMax}");
+                ImGui.Text($"当前简易制作步骤: {CurrentCraft.QuickSynthCurrent}");
+                ImGui.Text($"最大简易制作步骤: {CurrentCraft.QuickSynthMax}");
                 ImGui.Text($"阔步+比尔格: {CurrentCraft.GreatStridesByregotCombo()}");
                 ImGui.Text($"初期品质: {CurrentCraft.BaseQuality()}");
                 ImGui.Text($"预期品质: {CurrentCraft.CalculateNewQuality(CurrentCraft.CurrentRecommendation)}");
@@ -242,11 +242,11 @@ namespace Artisan.Autocraft
                 }
             }
 
-            if (ImGui.Button($"打开快速制作"))
+            if (ImGui.Button($"打开简易制作"))
             {
                 CurrentCraft.QuickSynthItem(DebugValue);
             }
-            if (ImGui.Button($"关闭快速制作窗口"))
+            if (ImGui.Button($"关闭简易制作窗口"))
             {
                 CurrentCraft.CloseQuickSynthWindow();
             }
@@ -254,7 +254,7 @@ namespace Artisan.Autocraft
             {
                 Spiritbond.OpenMateriaMenu();
             }
-            if (ImGui.Button($"提取第一个魔晶石"))
+            if (ImGui.Button($"精制第一个魔晶石"))
             {
                 Spiritbond.ExtractFirstMateria();
             }

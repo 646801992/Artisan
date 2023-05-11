@@ -142,12 +142,12 @@ namespace Artisan.CraftingLists
             }
             if (CurrentIndex < selectedList.Items.Count)
             {
-                Dalamud.Logging.PluginLog.Verbose($"Current Item: {selectedList.Items[CurrentIndex]}");
+                Dalamud.Logging.PluginLog.Verbose($"当前项目: {selectedList.Items[CurrentIndex]}");
                 CraftingListUI.CurrentProcessedItem = selectedList.Items[CurrentIndex];
             }
             else
             {
-                Dalamud.Logging.PluginLog.Verbose($"End of Index");
+                Dalamud.Logging.PluginLog.Verbose($"索引结束");
                 CurrentIndex = 0;
                 CraftingListUI.Processing = false;
             }
@@ -174,7 +174,7 @@ namespace Artisan.CraftingLists
             {
                 if (Throttler.Throttle(500))
                 {
-                    Service.ChatGui.PrintError($"Insufficient materials for {recipe.ItemResult.Value.Name.ExtractText()}. Moving on.");
+                    Service.ChatGui.PrintError($"{recipe.ItemResult.Value.Name.ExtractText()}材料不足，请继续。");
                     var currentRecipe = selectedList.Items[CurrentIndex];
                     
                     while (currentRecipe == selectedList.Items[CurrentIndex])
@@ -191,7 +191,7 @@ namespace Artisan.CraftingLists
             {
                 if (!SwitchJobGearset(recipe.CraftType.Value.RowId + 8))
                 {
-                    Service.ChatGui.PrintError($"Gearset not found for {LuminaSheets.ClassJobSheet[recipe.CraftType.Value.RowId + 8].Name.RawString}. Moving on.");
+                    Service.ChatGui.PrintError($"无法找到{LuminaSheets.ClassJobSheet[recipe.CraftType.Value.RowId + 8].Name.RawString}套装，请继续。");
                     CurrentIndex++;
                     return;
                 }
@@ -200,7 +200,7 @@ namespace Artisan.CraftingLists
 
             if (Service.ClientState.LocalPlayer.Level < recipe.RecipeLevelTable.Value.ClassJobLevel && Service.ClientState.LocalPlayer.ClassJob.Id == recipe.CraftType.Value.RowId + 8 && !isCrafting && !preparing)
             {
-                Service.ChatGui.PrintError("Insufficient level to craft this item. Moving on.");
+                Service.ChatGui.PrintError("等级不足，无法制作此物品。 继续。");
                 CurrentIndex++;
                 return;
             }

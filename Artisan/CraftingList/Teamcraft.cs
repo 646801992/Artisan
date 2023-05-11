@@ -28,18 +28,18 @@ namespace Artisan.CraftingLists
             ImGui.SetCursorPosY(ImGui.GetWindowSize().Y - 93);
             if (ImGui.BeginChild("###TeamCraftSection", new Vector2(0, 0), false))
             {
-                string labelText = "Teamcraft Lists";
+                string labelText = "Teamcraft清单";
                 var labelLength = ImGui.CalcTextSize(labelText);
                 ImGui.SetCursorPosX((ImGui.GetContentRegionMax().X - labelLength.X) * 0.5f);
                 ImGui.TextColored(ImGuiColors.ParsedGreen, labelText);
-                if (IconButtons.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Download, "Import", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
+                if (IconButtons.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Download, "导入", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
                 {
                     openImportWindow = true;
                 }
                 OpenTeamcraftImportWindow();
                 if (CraftingListUI.selectedList.ID != 0)
                 {
-                    if (IconButtons.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Upload, "Export", new Vector2(ImGui.GetContentRegionAvail().X, 30), true))
+                    if (IconButtons.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Upload, "导出", new Vector2(ImGui.GetContentRegionAvail().X, 30), true))
                     {
                         ExportSelectedListToTC();
                     }
@@ -82,7 +82,7 @@ namespace Artisan.CraftingLists
             string base64 = Convert.ToBase64String(plainTextBytes);
 
             ImGui.SetClipboardText($"{baseUrl}{base64}");
-            Notify.Success("Link copied to clipboard");
+            Notify.Success("链接已复制到剪贴板。");
         }
 
         private static void ExtractRecipes(List<uint> sublist, Recipe recipe)
@@ -124,24 +124,24 @@ namespace Artisan.CraftingLists
 
 
             ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.2f, 0.1f, 0.2f, 1f));
-            if (ImGui.Begin("Teamcraft Import###TCImport", ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize))
+            if (ImGui.Begin("Teamcraft导入###TCImport", ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize))
             {
-                ImGui.Text("List Name");
+                ImGui.Text("清单名称");
                 ImGui.SameLine();
-                ImGuiComponents.HelpMarker("Guide to importing lists.\r\n\r\n" +
-                    "Step 1. Open a list on Teamcraft with the items you wish to craft.\r\n\r\n" +
-                    "Step 2. Find the pre crafts section and click the \"Copy as Text\" button.\r\n\r\n" +
-                    "Step 3. Paste into the Pre-Craft Items box in this window.\r\n\r\n" +
-                    "Step 4. Repeat Step 2 & 3 but for the final items section.\r\n\r\n" +
-                    "Step 5. Give your list a name and click import.");
+                ImGuiComponents.HelpMarker("导入清单指南\r\n\r\n" +
+                    "步骤1：在Teamcraft上打开您想要制作的物品清单。\r\n\r\n" +
+                    "步骤2：找到半成品选项并单击“复制为文本”按钮。\r\n\r\n" +
+                    "步骤3：粘贴到此窗口中的半成品框中。\r\n\r\n" +
+                    "步骤4：针对最终成品部分重复步骤2和步骤3。\r\n\r\n" +
+                    "步骤5：为您的清单命名并单击导入。");
                 ImGui.InputText("###ImportListName", ref importListName, 50);
-                ImGui.Text("Pre-craft Items");
+                ImGui.Text("半成品");
                 ImGui.InputTextMultiline("###PrecraftItems", ref importListPreCraft, 5000000, new Vector2(ImGui.GetContentRegionAvail().X, 100));
-                ImGui.Text("Final Items");
+                ImGui.Text("成品");
                 ImGui.InputTextMultiline("###FinalItems", ref importListItems, 5000000, new Vector2(ImGui.GetContentRegionAvail().X, 100));
 
 
-                if (ImGui.Button("Import"))
+                if (ImGui.Button("导入"))
                 {
                     CraftingList? importedList = ParseImport();
                     if (importedList is not null)
@@ -158,12 +158,12 @@ namespace Artisan.CraftingLists
                     }
                     else
                     {
-                        Notify.Error("The imported list has no items. Please check your import and try again.");
+                        Notify.Error("导入时出了点问题。请检查您是否已正确填写所有内容。");
                     }
 
                 }
                 ImGui.SameLine();
-                if (ImGui.Button("Cancel"))
+                if (ImGui.Button("取消"))
                 {
                     openImportWindow = false;
                     importListName = "";
