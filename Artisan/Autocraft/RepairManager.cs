@@ -19,7 +19,7 @@ namespace Artisan.Autocraft
     {
         internal static void Repair()
         {
-            if (TryGetAddonByName<AddonRepair>("修理", out var addon) && addon->AtkUnitBase.IsVisible && addon->RepairAllButton->IsEnabled && Throttler.Throttle(500))
+            if (TryGetAddonByName<AddonRepair>("Repair", out var addon) && addon->AtkUnitBase.IsVisible && addon->RepairAllButton->IsEnabled && Throttler.Throttle(500))
             {
                 new ClickRepair((IntPtr)addon).RepairAll();
             }
@@ -27,7 +27,7 @@ namespace Artisan.Autocraft
 
         internal static void ConfirmYesNo()
         {
-            if(TryGetAddonByName<AddonRepair>("修理", out var r) && 
+            if(TryGetAddonByName<AddonRepair>("Repair", out var r) && 
                 r->AtkUnitBase.IsVisible && TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addon) && 
                 addon->AtkUnitBase.IsVisible && 
                 addon->YesButton->IsEnabled && 
@@ -56,7 +56,7 @@ namespace Artisan.Autocraft
             if (GetMinEquippedPercent() >= repairPercent)
             {
                 if (AutocraftDebugTab.Debug) PluginLog.Verbose("状态良好");
-                if (TryGetAddonByName<AddonRepair>("修理", out var r) && r->AtkUnitBase.IsVisible)
+                if (TryGetAddonByName<AddonRepair>("Repair", out var r) && r->AtkUnitBase.IsVisible)
                 {
                     if (AutocraftDebugTab.Debug) PluginLog.Verbose("修理可见");
                     if (Throttler.Throttle(500))
@@ -75,7 +75,7 @@ namespace Artisan.Autocraft
                 if (use)
                 {
                     if (AutocraftDebugTab.Debug) PluginLog.Verbose($"执行修理");
-                    if (TryGetAddonByName<AddonRepair>("修理", out var r) && r->AtkUnitBase.IsVisible)
+                    if (TryGetAddonByName<AddonRepair>("Repair", out var r) && r->AtkUnitBase.IsVisible)
                     {
                         //PluginLog.Verbose($"Repair visible");
                         ConfirmYesNo();
