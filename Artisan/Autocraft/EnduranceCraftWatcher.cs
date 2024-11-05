@@ -35,8 +35,8 @@ namespace Artisan.Autocraft
                         if (Endurance.Enable && P.Config.EnduranceStopNQ && !item.IsHQ)
                         {
                             Endurance.Enable = false;
-                            Svc.Toasts.ShowError("You crafted a non-HQ item. Disabling Endurance.");
-                            DuoLog.Error("You crafted a non-HQ item. Disabling Endurance.");
+                            Svc.Toasts.ShowError("你制作了一个非 HQ 物品，正在禁用续航模式。");
+                            DuoLog.Error("你制作了一个非 HQ 物品，正在禁用续航模式。");
                         }
                     }
                 }
@@ -52,13 +52,13 @@ namespace Artisan.Autocraft
 
         private static void OnCraftFinished(Recipe recipe, CraftState craft, StepState finalStep, bool cancelled)
         {
-            Svc.Log.Debug($"Craft Finished");
+            Svc.Log.Debug($"制作已结束。");
 
             if (CraftingListUI.Processing)
             {
                 if (!cancelled)
                 {
-                    Svc.Log.Verbose("Advancing Crafting List");
+                    Svc.Log.Verbose("进阶制作清单");
                     CraftingListFunctions.CurrentIndex++;
                 }
                 if (cancelled)
@@ -73,14 +73,14 @@ namespace Artisan.Autocraft
                 if (cancelled)
                 {
                     Endurance.Enable = false;
-                    Svc.Toasts.ShowError("You've cancelled a craft. Disabling Endurance.");
-                    DuoLog.Error("You've cancelled a craft. Disabling Endurance.");
+                    Svc.Toasts.ShowError("你取消了一个制作，正在禁用续航模式。");
+                    DuoLog.Error("你取消了一个制作，正在禁用续航模式。");
                 }
                 else if (finalStep.Progress < craft.CraftProgress && P.Config.EnduranceStopFail)
                 {
                     Endurance.Enable = false;
-                    Svc.Toasts.ShowError("You failed a craft. Disabling Endurance.");
-                    DuoLog.Error("You failed a craft. Disabling Endurance.");
+                    Svc.Toasts.ShowError("你生产失败了一个制作，正在禁用续航模式。");
+                    DuoLog.Error("你生产失败了一个制作，正在禁用续航模式。");
                 }
                 else if (P.Config.CraftingX && P.Config.CraftX > 0)
                 {
@@ -91,7 +91,7 @@ namespace Artisan.Autocraft
                         Endurance.Enable = false;
                         if (P.Config.PlaySoundFinishEndurance)
                             SoundPlayer.PlaySound();
-                        DuoLog.Information("Craft X has completed.");
+                        DuoLog.Information("制作 X 次已完成。");
 
                     }
                 }

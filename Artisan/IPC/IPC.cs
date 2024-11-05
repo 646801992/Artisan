@@ -95,9 +95,9 @@ namespace Artisan.IPC
         static void SetStopRequest(bool s)
         {
             if (s)
-                DuoLog.Information("Artisan has been requested to stop by an external plugin.");
+                DuoLog.Information("已请求 Artisan 通过外部插件停止。");
             else
-                DuoLog.Information("Artisan has been requested to restart by an external plugin.");
+                DuoLog.Information("外部插件已请求 Artisan 重新启动。");
 
             StopCraftingRequest = s;
         }
@@ -121,7 +121,7 @@ namespace Artisan.IPC
             }
             else
             {
-                throw new Exception("RecipeID not found.");
+                throw new Exception("未找到 RecipeID。");
             }
         }
 

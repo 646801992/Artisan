@@ -22,7 +22,7 @@ namespace Artisan.UI
     {
         private static string _newMacroName = string.Empty;
         private static bool _keyboardFocus;
-        private const string MacroNamePopupLabel = "Macro Name";
+        private const string MacroNamePopupLabel = "生产宏名称";
         private static bool reorderMode = false;
         private static MacroSolverSettings.Macro? selectedAssignMacro;
 
@@ -44,19 +44,19 @@ namespace Artisan.UI
 
         internal static void Draw()
         {
-            ImGui.TextWrapped("This tab will allow you to add macros that Artisan can use instead of its own decisions. Once you create a new macro, click on it from the list below to open up the macro editor window for your macro.");
+            ImGui.TextWrapped("此选项卡允许你添加生产宏，供 Artisan 在执行操作时使用，以替代其自动决策。创建新的生产宏后，从下方列表中点击宏名称，即可打开生产宏编辑器窗口进行编辑。");
             ImGui.Separator();
 
             if (Svc.ClientState.IsLoggedIn && Crafting.CurState is not Crafting.State.IdleNormal and not Crafting.State.IdleBetween)
             {
-                ImGui.Text($"Crafting in progress. Macro settings will be unavailable until you stop crafting.");
+                ImGui.Text($"制作正在进行中，停止制作后，宏设置才可用。");
                 return;
             }
             ImGui.Spacing();
-            if (ImGui.Button("Import Macro From Clipboard"))
+            if (ImGui.Button("从剪贴板导入宏"))
                 OpenMacroNamePopup(MacroNameUse.FromClipboard);
 
-            if (ImGui.Button("Import Macro From Clipboard (Artisan Export)"))
+            if (ImGui.Button("从剪贴板导入宏 (Artisan 导出)"))
             {
                 try
                 {
@@ -70,11 +70,11 @@ namespace Artisan.UI
                 catch (Exception ex)
                 {
                     ex.Log();
-                    Notify.Error("Unable to import.");
+                    Notify.Error("无法导入。");
                 }
             }
 
-            if (ImGui.Button("New Macro"))
+            if (ImGui.Button("新建生产宏"))
                 OpenMacroNamePopup(MacroNameUse.NewMacro);
 
             DrawMacroNamePopup(MacroNameUse.FromClipboard);
@@ -83,14 +83,14 @@ namespace Artisan.UI
             if (P.Config.MacroSolverConfig.Macros.Count > 0)
             {
                 if (P.Config.MacroSolverConfig.Macros.Count > 1)
-                    ImGui.Checkbox("Reorder Mode (Click and Drag to Reorder)", ref reorderMode);
+                    ImGui.Checkbox("重新排序模式（单击并拖动以重新排序）", ref reorderMode);
                 else
                     reorderMode = false;
 
                 if (reorderMode)
-                    ImGuiEx.CenterColumnText("Reorder Mode");
+                    ImGuiEx.CenterColumnText("重新排序模式");
                 else
-                    ImGuiEx.CenterColumnText("Macro Editor Select");
+                    ImGuiEx.CenterColumnText("生产宏编辑器选择");
 
                 if (ImGui.BeginChild("##selector", new Vector2(ImGui.GetContentRegionAvail().X, ImGui.GetContentRegionAvail().Y / 1.85f), true))
                 {
@@ -98,7 +98,7 @@ namespace Artisan.UI
                     {
                         var m = P.Config.MacroSolverConfig.Macros[i];
                         int cpCost = GetCPCost(m);
-                        var selected = ImGui.Selectable($"{m.Name} (CP Cost: {cpCost}) (ID: {m.ID})###{m.ID}");
+                        var selected = ImGui.Selectable($"{m.Name}  (制作力: {cpCost})  (ID: {m.ID})###{m.ID}");
 
                         if (ImGui.IsItemActive() && !ImGui.IsItemHovered() && reorderMode)
                         {
@@ -120,7 +120,7 @@ namespace Artisan.UI
 
                 }
                 ImGui.EndChild();
-                ImGuiEx.CenterColumnText("Quick Macro Assigner");
+                ImGuiEx.CenterColumnText("快速宏分配器");
                 if (ImGui.BeginChild("###Assigner", new Vector2(ImGui.GetContentRegionAvail().X, ImGui.GetContentRegionAvail().Y), true))
                 {
                     if (ImGui.BeginCombo($"{LuminaSheets.AddonSheet[405].Text.RawString.Replace("#", "").Replace("n°", "").Trim()}", selectedAssignMacro?.Name ?? ""))
@@ -202,7 +202,7 @@ namespace Artisan.UI
 
                 filteredRecipes = filteredRecipes.Where(x => Calculations.RecipeMaxQuality(x) == quickAssignQuality);
 
-                if (ImGui.BeginListBox($"{LuminaSheets.AddonSheet[5400].Text}###AssignJobBox", new Vector2(0, 55)))
+                if (ImGui.BeginListBox($"{LuminaSheets.AddonSheet[5400].Text}###AssignJobBox", new Vector2(0, 100)))
                 {
                     ImGui.Columns(4, null, false);
                     for (var job = Job.CRP; job <= Job.CUL; ++job)
@@ -276,10 +276,10 @@ namespace Artisan.UI
                     }
                     filteredRecipes = filteredRecipes.Where(x => x.CanHq != quickAssignCannotHQ);
 
-                    if (ImGui.Checkbox($"Show All Recipes Assigned To", ref P.Config.ShowMacroAssignResults))
+                    if (ImGui.Checkbox($"显示所有分配给的配方", ref P.Config.ShowMacroAssignResults))
                         P.Config.Save();
 
-                    if (ImGui.Button($"Assign Macro To Recipes", new Vector2(ImGui.GetContentRegionAvail().X / 2, 24f.Scale())))
+                    if (ImGui.Button($"为配方指定生产宏", new Vector2(ImGui.GetContentRegionAvail().X / 2, 24f.Scale())))
                     {
                         int numberFound = 0;
                         foreach (var recipe in filteredRecipes)
@@ -292,25 +292,25 @@ namespace Artisan.UI
                             if (P.Config.ShowMacroAssignResults)
                             {
                                 P.TM.DelayNext(400);
-                                P.TM.Enqueue(() => Notify.Info($"Macro assigned to {recipe.ItemResult.Value.Name.RawString}."));
+                                P.TM.Enqueue(() => Notify.Info($"生产宏已指定给 {recipe.ItemResult.Value.Name.RawString}。"));
                             }
                             numberFound++;
                         }
 
                         if (numberFound > 0)
                         {
-                            Notify.Success($"Macro assigned to {numberFound} recipes.");
+                            Notify.Success($"生产宏已分配给 {numberFound} 个配方。");
                             P.Config.Save();
                         }
                         else
                         {
-                            Notify.Error("No recipes match your parameters. No macros assigned.");
+                            Notify.Error("没有符合你参数的配方。没有指定生产宏。");
                         }
                     }
                     ImGui.SameLine();
                 }
             }
-            if (ImGui.Button($"Unassign Macro From All Recipes (Hold Ctrl)", new Vector2(ImGui.GetContentRegionAvail().X, 24f.Scale())) && ImGui.GetIO().KeyCtrl)
+            if (ImGui.Button($"取消所有配方中的生产宏分配 (按住 Ctrl)", new Vector2(ImGui.GetContentRegionAvail().X, 24f.Scale())) && ImGui.GetIO().KeyCtrl)
             {
                 int count = 0;
                 foreach (var e in P.Config.RecipeConfigs)
@@ -321,9 +321,9 @@ namespace Artisan.UI
                     }
                 P.Config.Save();
                 if (count > 0)
-                    Notify.Success($"Removed from {count} recipes.");
+                    Notify.Success($"从 {count} 个配方中移除。");
                 else
-                    Notify.Error($"This macro was not assigned to any recipes.");
+                    Notify.Error($"此生产宏未分配给任何配方。");
             }
         }
 
@@ -433,7 +433,7 @@ namespace Artisan.UI
                     _keyboardFocus = false;
                 }
 
-                if (ImGui.InputText("Macro Name##macroName", ref _newMacroName, 64, ImGuiInputTextFlags.EnterReturnsTrue) && _newMacroName.Any())
+                if (ImGui.InputText("生产宏名称##macroName", ref _newMacroName, 64, ImGuiInputTextFlags.EnterReturnsTrue) && _newMacroName.Any())
                 {
                     switch (use)
                     {
@@ -455,16 +455,16 @@ namespace Artisan.UI
                                     macro.Steps = steps;
                                     P.Config.MacroSolverConfig.AddNewMacro(macro);
                                     P.Config.Save();
-                                    DuoLog.Information($"{macro.Name} has been saved.");
+                                    DuoLog.Information($"{macro.Name} 已保存。");
                                 }
                                 else
                                 {
-                                    DuoLog.Error("Unable to parse clipboard. Please check your clipboard contains a working macro with actions.");
+                                    DuoLog.Error("无法解析剪贴板，请检查你的剪贴板是否包含可执行操作的宏。");
                                 }
                             }
                             catch (Exception e)
                             {
-                                Svc.Log.Information($"Could not save new Macro from Clipboard:\n{e}");
+                                Svc.Log.Information($"无法从剪贴板保存新的生产宏:\n{e}");
                             }
 
                             break;
@@ -511,7 +511,7 @@ namespace Artisan.UI
                     action = action.Replace("\"", "");
                     if (string.IsNullOrEmpty(action)) continue;
 
-                    if (action.Equals("Artisan Recommendation", StringComparison.CurrentCultureIgnoreCase) || action.Equals("*"))
+                    if (action.Equals("Artisan 推荐", StringComparison.CurrentCultureIgnoreCase) || action.Equals("*"))
                     {
                         res.Add(new() { Action = Skills.None });
                         continue;
@@ -520,7 +520,7 @@ namespace Artisan.UI
                     var act = Enum.GetValues(typeof(Skills)).Cast<Skills>().FirstOrDefault(s => s.NameOfAction().Equals(action, StringComparison.CurrentCultureIgnoreCase));
                     if (act == default)
                     {
-                        DuoLog.Error($"Unable to parse action: {action}");
+                        DuoLog.Error($"无法解析操作: {action}");
                         continue;
                     }
                     res.Add(new() { Action = act });

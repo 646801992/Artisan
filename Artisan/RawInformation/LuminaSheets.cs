@@ -160,7 +160,7 @@ namespace Artisan.RawInformation
         {
             if (skill == Skills.TouchCombo) return "Touch Combo";
             var id = skill.ActionId(ECommons.ExcelServices.Job.CRP);
-            return id == 0 ? "Artisan Recommendation" : id < 100000 ? LuminaSheets.ActionSheet[id].Name.RawString : LuminaSheets.CraftActions[id].Name.RawString;
+            return id == 0 ? "Artisan 建议" : id < 100000 ? LuminaSheets.ActionSheet[id].Name.RawString : LuminaSheets.CraftActions[id].Name.RawString;
         }
 
         public static ushort IconOfAction(this Skills skill, ECommons.ExcelServices.Job job)
@@ -246,6 +246,7 @@ namespace Artisan.RawInformation
                         ClientLanguage.Japanese => Language.Japanese,
                         ClientLanguage.German => Language.German,
                         ClientLanguage.French => Language.French,
+                        ClientLanguage.ChineseSimplified => Language.ChineseSimplified,
                         _ => Language.English,
                     };
 
@@ -284,6 +285,7 @@ namespace Artisan.RawInformation
                         ClientLanguage.Japanese => Language.Japanese,
                         ClientLanguage.German => Language.German,
                         ClientLanguage.French => Language.French,
+                        ClientLanguage.ChineseSimplified => Language.ChineseSimplified,
                         _ => Language.English,
                     };
 

@@ -46,17 +46,17 @@ namespace Artisan.CraftingLists
         private static readonly ListFolders ListsUI = new();
 
         private static bool GatherBuddy => DalamudReflector.TryGetDalamudPlugin("GatherBuddy", out var gb, false, true);
-        private static bool ItemVendor => DalamudReflector.TryGetDalamudPlugin("Item Vendor Location", out var ivl, false, true);
+        private static bool ItemVendor => DalamudReflector.TryGetDalamudPlugin("物品商人位置", out var ivl, false, true);
 
-        private static bool MonsterLookup => DalamudReflector.TryGetDalamudPlugin("Monster Loot Hunter", out var mlh, false, true);
+        private static bool MonsterLookup => DalamudReflector.TryGetDalamudPlugin("怪物掉落狩猎", out var mlh, false, true);
 
         internal static void Draw()
         {
-            ImGui.TextWrapped($"Crafting lists are a fantastic way to queue up different crafts and have them craft one-by-one. Create a list by importing from Teamcraft using the button at the bottom, or click the '+' icon and give your list a name." +
-                              $" You can also right click an item from the game's recipe menu to either add it to a new list if one is not selected, or to create a new list with it as the first item if a list is not selected.");
+            ImGui.TextWrapped($" 制作清单是一种将不同的制作品排队并将它们逐一制作的绝佳方法。通过使用底部的按钮从 Teamcraft 导入来创建清单，或点击 '+' 图标并为你的清单命名。" +
+                              $" 你也可以右键点击游戏制作笔记中的物品，若选择了清单，则将其添加到当前清单中；若未选择列表，则以该物品作为第一个项目创建新清单。");
 
             ImGui.Dummy(new Vector2(0, 14f));
-            ImGui.TextWrapped("Left click a list to open the editor. Right click a list to select it without opening the editor.");
+            ImGui.TextWrapped("左键点击清单以打开编辑器，右键点击清单以选择它而不打开编辑器。");
 
             ImGui.Separator();
 
@@ -76,7 +76,7 @@ namespace Artisan.CraftingLists
                 if (Endurance.Enable || Processing)
                     ImGui.BeginDisabled();
 
-                if (ImGui.Button("Start Crafting List", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
+                if (ImGui.Button("开始制作清单", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
                 {
                     StartList();
                 }
@@ -85,14 +85,14 @@ namespace Artisan.CraftingLists
                 {
                     if (RetainerInfo.TM.IsBusy)
                     {
-                        if (ImGui.Button("Abort Collecting From Retainer", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
+                        if (ImGui.Button("停止从雇员背包收集", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
                         {
                             RetainerInfo.TM.Abort();
                         }
                     }
                     else
                     {
-                        if (ImGui.Button("Restock Inventory From Retainers", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
+                        if (ImGui.Button("从雇员背包补充库存", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
                         {
                             Task.Run(() => RetainerInfo.RestockFromRetainers(selectedList));
                         }
@@ -101,10 +101,10 @@ namespace Artisan.CraftingLists
                 else
                 {
                     if (!RetainerInfo.AToolsInstalled)
-                        ImGuiEx.TextCentered(ImGuiColors.DalamudYellow, $"Please install Allagan Tools for retainer features.");
+                        ImGuiEx.TextCentered(ImGuiColors.DalamudYellow, $"请安装 Allagan Tools 以启用雇员功能。");
 
                     if (RetainerInfo.AToolsInstalled && !RetainerInfo.AToolsEnabled)
-                        ImGuiEx.TextCentered(ImGuiColors.DalamudYellow, $"Please enable Allagan Tools for retainer features.");
+                        ImGuiEx.TextCentered(ImGuiColors.DalamudYellow, $"请启用 Allagan Tools 以启用雇员功能。");
                 }
 
 
@@ -112,7 +112,7 @@ namespace Artisan.CraftingLists
                     ImGui.EndDisabled();
             }
 
-            if (ImGui.Button("Import List From Clipboard (Artisan Export)", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
+            if (ImGui.Button("从剪贴板导入列表（Artisan 导出）", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
             {
                 try
                 {
@@ -126,12 +126,12 @@ namespace Artisan.CraftingLists
                         }
                         else
                         {
-                            Notify.Error("Invalid import string.");
+                            Notify.Error("无效的导入字符串。");
                         }
                     }
                     else
                     {
-                        Notify.Error("Clipboard is empty.");
+                        Notify.Error("剪贴板为空。");
                     }
                 }
                 catch (Exception ex)
@@ -250,7 +250,7 @@ namespace Artisan.CraftingLists
                     keyboardFocus = false;
                 }
 
-                if (ImGui.InputText("List Name###listName", ref newListName, 100, ImGuiInputTextFlags.EnterReturnsTrue) && newListName.Any())
+                if (ImGui.InputText("清单名称###listName", ref newListName, 100, ImGuiInputTextFlags.EnterReturnsTrue) && newListName.Any())
                 {
                     NewCraftingList newList = new();
                     newList.Name = newListName;

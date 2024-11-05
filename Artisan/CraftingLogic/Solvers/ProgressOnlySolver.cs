@@ -14,7 +14,7 @@ namespace Artisan.CraftingLogic.Solvers
         public IEnumerable<ISolverDefinition.Desc> Flavours(CraftState craft)
         {
             if (!craft.CraftExpert && !craft.CraftCollectible)
-            yield return new(this, 0, 1, "Progress Only Solver");
+            yield return new(this, 0, 1, "仅推进展求解器");
         }
     }
 

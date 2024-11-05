@@ -251,7 +251,7 @@ namespace Artisan.Autocraft
             if (Endurance.Enable && P.Config.DisableEnduranceNoRepair)
             {
                 Endurance.ToggleEndurance(false);
-                DuoLog.Warning($"Endurance has stopped due to being unable to repair.");
+                DuoLog.Warning($"续航模式因无法修理装备而停止。");
                 _nextRetry = DateTime.Now.Add(TimeSpan.FromMilliseconds(1000));
                 return false;
             }
@@ -259,7 +259,7 @@ namespace Artisan.Autocraft
             if (CraftingListUI.Processing && P.Config.DisableListsNoRepair)
             {
                 CraftingListFunctions.Paused = true;
-                DuoLog.Warning($"List has been paused due to being unable to repair.");
+                DuoLog.Warning($"制作清单因无法修理装备而停止。");
                 _nextRetry = DateTime.Now.Add(TimeSpan.FromMilliseconds(1000));
                 return false;
             }

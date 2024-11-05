@@ -139,7 +139,7 @@ namespace Artisan.IPC
         {
             if (Svc.Condition[ConditionFlag.OccupiedSummoningBell])
             {
-                Svc.Log.Debug($"Item Added: Clearing cache");
+                Svc.Log.Debug($"新增项目：清除缓存");
                 ClearCache(null);
                 _InventoryChanged = true;
             }
@@ -149,7 +149,7 @@ namespace Artisan.IPC
         {
             if (Svc.Condition[ConditionFlag.OccupiedSummoningBell])
             {
-                Svc.Log.Debug($"Item Removed: Clearing cache");
+                Svc.Log.Debug($"删除的项目：清除缓存");
                 ClearCache(null);
                 _InventoryChanged = true;
             }

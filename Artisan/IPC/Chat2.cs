@@ -54,7 +54,7 @@ namespace Artisan.IPC
         {
             // Register and save the registration ID.
             try { _id = Register.InvokeFunc(); }
-            catch (Dalamud.Plugin.Ipc.Exceptions.IpcNotReadyError) { Svc.Log.Debug("Chat2 is not available"); }
+            catch (Dalamud.Plugin.Ipc.Exceptions.IpcNotReadyError) { Svc.Log.Debug("Chat2 不可用"); }
         }
 
         public void Disable()

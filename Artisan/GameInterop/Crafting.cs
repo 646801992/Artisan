@@ -191,7 +191,7 @@ public static unsafe class Crafting
         };
         if (newState != CurState)
         {
-            Svc.Log.Debug($"Transition: {CurState} -> {newState}");
+            Svc.Log.Debug($"过渡: {CurState} -> {newState}");
             CurState = newState;
             StateChanged?.Invoke(newState);
         }
@@ -224,7 +224,7 @@ public static unsafe class Crafting
 
         if (Svc.Condition[ConditionFlag.PreparingToCraft])
         {
-            Svc.Log.Error("Unexpected crafting state transition: from idle to preparing");
+            Svc.Log.Error("意外的制作状态转换：从空闲到准备中");
             return State.IdleBetween;
         }
 
@@ -267,7 +267,7 @@ public static unsafe class Crafting
             if (Svc.Condition[ConditionFlag.PreparingToCraft])
                 return State.IdleBetween;
 
-            Svc.Log.Error($"Unexpected addon state when craft should've been started");
+            Svc.Log.Error($"在制作应该开始时，插件状态出现意外");
             return State.WaitStart; // try again next frame
         }
 
@@ -277,8 +277,8 @@ public static unsafe class Crafting
         var canHQ = CurRecipe.CanHq;
         CurCraft = BuildCraftStateForRecipe(CharacterStats.GetCurrentStats(), CharacterInfo.JobID, CurRecipe);
         CurStep = BuildStepState(synthWindow, Skills.None, false);
-        if (CurStep.Index != 1 || CurStep.Condition != Condition.Normal || CurStep.PrevComboAction != Skills.None)
-            Svc.Log.Error($"Unexpected initial state: {CurStep}");
+        if (CurStep.Index != 1 || CurStep.Condition != Condition.通常 || CurStep.PrevComboAction != Skills.None)
+            Svc.Log.Error($"意外的初始状态: {CurStep}");
 
         IsTrial = synthWindow->AtkUnitBase.AtkValues[1] is { Type: FFXIVClientStructs.FFXIV.Component.GUI.ValueType.Bool, Byte: 1 };
         CraftStarted?.Invoke(CurRecipe, CurCraft, CurStep, IsTrial);
@@ -324,11 +324,11 @@ public static unsafe class Crafting
             {
                 if (DateTime.Now <= _predictionDeadline)
                 {
-                    Svc.Log.Debug("Waiting for status update...");
+                    Svc.Log.Debug("等待状态更新...");
                     return State.WaitAction; // wait for a bit...
                 }
                 // ok, we've been waiting too long - complain and consider current state to be correct
-                Svc.Log.Error($"Unexpected status update - probably a simulator bug:\n" +
+                Svc.Log.Error($"意外的状态更新 - 可能是模拟器错误:\n" +
                     $"     had {CurStep}\n" +
                     $"expected {_predictedNextStep}\n" +
                     $"     got {step}\n" +
@@ -347,7 +347,7 @@ public static unsafe class Crafting
         if (Svc.Condition[ConditionFlag.Crafting40])
             return State.WaitFinish; // transition still in progress
 
-        Svc.Log.Debug($"Resetting");
+        Svc.Log.Debug($"重置");
         _predictedNextStep = null;
         _predictionDeadline = default;
         CurRecipe = null;
@@ -382,7 +382,7 @@ public static unsafe class Crafting
 
         if (synthWindow->AtkUnitBase.AtkValuesCount < 26)
         {
-            Svc.Log.Error($"Unexpected addon state: 0x{(nint)synthWindow:X} {synthWindow->AtkUnitBase.AtkValuesCount} {synthWindow->AtkUnitBase.UldManager.NodeListCount})");
+            Svc.Log.Error($"意外的插件状态: 0x{(nint)synthWindow:X} {synthWindow->AtkUnitBase.AtkValuesCount} {synthWindow->AtkUnitBase.UldManager.NodeListCount})");
             return null;
         }
 
@@ -397,7 +397,7 @@ public static unsafe class Crafting
 
         if (addon->AtkValuesCount < 9)
         {
-            Svc.Log.Error($"Unexpected quicksynth addon state: 0x{(nint)addon:X} {addon->AtkValuesCount} {addon->UldManager.NodeListCount})");
+            Svc.Log.Error($"意外的简易制作插件状态: 0x{(nint)addon:X} {addon->AtkValuesCount} {addon->UldManager.NodeListCount})");
             return null;
         }
 
@@ -420,7 +420,7 @@ public static unsafe class Crafting
         if (QuickSynthState == state)
             return;
         QuickSynthState = state;
-        Svc.Log.Debug($"Quick-synth progress update: {QuickSynthState} {Environment.TickCount64}");
+        Svc.Log.Debug($"简易制作进度更新: {QuickSynthState} {Environment.TickCount64}");
         QuickSynthProgress?.Invoke(QuickSynthState.Cur, QuickSynthState.Max);
     }
 

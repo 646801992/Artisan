@@ -45,17 +45,17 @@ namespace Artisan.RawInformation
         {
             return condition switch
             {
-                Condition.Poor => LuminaSheets.AddonSheet[229].Text.RawString,
-                Condition.Normal => LuminaSheets.AddonSheet[226].Text.RawString,
-                Condition.Good => LuminaSheets.AddonSheet[227].Text.RawString,
-                Condition.Excellent => LuminaSheets.AddonSheet[228].Text.RawString,
-                Condition.Centered => LuminaSheets.AddonSheet[239].Text.RawString,
-                Condition.Sturdy => LuminaSheets.AddonSheet[240].Text.RawString,
-                Condition.Pliant => LuminaSheets.AddonSheet[241].Text.RawString,
-                Condition.Malleable => LuminaSheets.AddonSheet[13455].Text.RawString,
-                Condition.Primed => LuminaSheets.AddonSheet[13454].Text.RawString,
-                Condition.GoodOmen => LuminaSheets.AddonSheet[14214].Text.RawString,
-                Condition.Unknown => "Unknown",
+                Condition.低品质 => LuminaSheets.AddonSheet[229].Text.RawString,
+                Condition.通常 => LuminaSheets.AddonSheet[226].Text.RawString,
+                Condition.高品质 => LuminaSheets.AddonSheet[227].Text.RawString,
+                Condition.最高品质 => LuminaSheets.AddonSheet[228].Text.RawString,
+                Condition.安定 => LuminaSheets.AddonSheet[239].Text.RawString,
+                Condition.结实 => LuminaSheets.AddonSheet[240].Text.RawString,
+                Condition.高效 => LuminaSheets.AddonSheet[241].Text.RawString,
+                Condition.大进展 => LuminaSheets.AddonSheet[13455].Text.RawString,
+                Condition.长持续 => LuminaSheets.AddonSheet[13454].Text.RawString,
+                Condition.好兆头 => LuminaSheets.AddonSheet[14214].Text.RawString,
+                Condition.未知 => "未知",
                 _ => throw new System.NotImplementedException()
             };
         }

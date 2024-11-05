@@ -17,23 +17,23 @@ public static class Simulator
 {
     public enum CraftStatus
     {
-        [Description("Craft in progress")]
+        [Description("制作仍正在进行中")]
         InProgress,
-        [Description("Craft failed due to durability")]
+        [Description("制作失败，耐久不足")]
         FailedDurability,
-        [Description("Craft failed due to minimum quality not being met")]
+        [Description("制作失败，未达到最低品质要求")]
         FailedMinQuality,
-        [Description($"Craft has completed 1st quality breakpoint")]
+        [Description($"制作已达成第一段收藏价值")]
         SucceededQ1,
-        [Description($"Craft has completed 2nd quality breakpoint")]
+        [Description($"制作已达成第二段收藏价值")]
         SucceededQ2,
-        [Description($"Craft has completed 3rd quality breakpoint")]
+        [Description($"制作已达成第三段收藏价值")]
         SucceededQ3,
-        [Description($"Craft has completed with max quality")]
+        [Description($"制作完成，达到最高品质")]
         SucceededMaxQuality,
-        [Description($"Craft has completed without max quality")]
+        [Description($"制作完成，但未达到最高品质")]
         SucceededSomeQuality,
-        [Description($"Craft has completed, no quality required")]
+        [Description($"制作完成，无品质要求")]
         SucceededNoQualityReq,
 
         Count
@@ -61,7 +61,7 @@ public static class Simulator
             HeartAndSoulAvailable = craft.Specialist,
             QuickInnoAvailable = craft.Specialist,
             TrainedPerfectionAvailable = craft.StatLevel >= MinLevel(Skills.TrainedPerfection), 
-            Condition = Condition.Normal 
+            Condition = Condition.通常 
         };
 
     public static CraftStatus Status(CraftState craft, StepState step)
@@ -108,7 +108,7 @@ public static class Simulator
     {
         hintColor = ImGuiColors.DalamudWhite;
         var solver = CraftingProcessor.GetSolverForRecipe(config, craft).CreateSolver(craft);
-        if (solver == null) return "No valid solver found.";
+        if (solver == null) return "未找到有效的求解器。";
         var rd = RecipeNoteRecipeData.Ptr();
         var re = rd != null ? rd->FindRecipeById(recipe.RowId) : null;
         var startingQuality = re != null ? Calculations.GetStartingQuality(recipe, re->GetAssignedHQIngredients()) : 0;
@@ -119,17 +119,17 @@ public static class Simulator
 
         string solverHint = status switch
         {
-            CraftStatus.InProgress => "Craft did not finish (solver failed to return any more steps before finishing).",
-            CraftStatus.FailedDurability => $"Craft failed due to durability shortage. (P: {(float)result.Progress / craft.CraftProgress * 100:f0}%, Q: {(float)result.Quality / craft.CraftQualityMax * 100:f0}%)",
-            CraftStatus.FailedMinQuality => "Craft completed but didn't meet minimum quality.",
-            CraftStatus.SucceededQ1 => $"Craft completed and managed to hit 1st quality threshold in {time.TotalSeconds:f0}s.",
-            CraftStatus.SucceededQ2 => $"Craft completed and managed to hit 2nd quality threshold in {time.TotalSeconds:f0}s.",
-            CraftStatus.SucceededQ3 => $"Craft completed and managed to hit 3rd quality threshold in {time.TotalSeconds:f0}s!",
-            CraftStatus.SucceededMaxQuality => $"Craft completed with full quality in {time.TotalSeconds:f0}s!",
-            CraftStatus.SucceededSomeQuality => $"Craft completed but didn't max out quality ({hq}%) in {time.TotalSeconds:f0}s",
-            CraftStatus.SucceededNoQualityReq => $"Craft completed, no quality required in {time.TotalSeconds:f0}s!",
-            CraftStatus.Count => "You shouldn't be able to see this. Report it please.",
-            _ => "You shouldn't be able to see this. Report it please.",
+            CraftStatus.InProgress => "制作未完成（求解器在完成前未返回更多步骤）。",
+            CraftStatus.FailedDurability => $"制作失败，耐久不足。(进展: {(float)result.Progress / craft.CraftProgress * 100:f0}%, 品质: {(float)result.Quality / craft.CraftQualityMax * 100:f0}%)",
+            CraftStatus.FailedMinQuality => "制作完成，但未达到最低品质要求。",
+            CraftStatus.SucceededQ1 => $"制作完成，并达成第一段收藏价值，耗时 {time.TotalSeconds:f0}s 。",
+            CraftStatus.SucceededQ2 => $"制作完成，并达成第二段收藏价值，耗时 {time.TotalSeconds:f0}s 。",
+            CraftStatus.SucceededQ3 => $"制作完成，并达成第三段收藏价值，耗时 {time.TotalSeconds:f0}s ！",
+            CraftStatus.SucceededMaxQuality => $"制作完成，并达到最高品质，耗时 {time.TotalSeconds:f0}s ！",
+            CraftStatus.SucceededSomeQuality => $"制作完成，但未达到最高品质 ({hq}%) ，耗时 {time.TotalSeconds:f0}s。",
+            CraftStatus.SucceededNoQualityReq => $"制作完成，无品质要求，耗时 {time.TotalSeconds:f0}s!",
+            CraftStatus.Count => "你不应该能看到这个，请报告这个问题。",
+            _ => "你不应该能看到这个，请报告这个问题。",
         };
 
 
@@ -195,7 +195,7 @@ public static class Simulator
         next.MuscleMemoryLeft = action == Skills.MuscleMemory ? GetNewBuffDuration(step, 5) : GetOldBuffDuration(step.MuscleMemoryLeft, action, next.Progress != step.Progress);
         next.FinalAppraisalLeft = action == Skills.FinalAppraisal ? GetNewBuffDuration(step, 5) : GetOldBuffDuration(step.FinalAppraisalLeft, action, next.Progress >= craft.CraftProgress);
         next.CarefulObservationLeft = step.CarefulObservationLeft - (action == Skills.CarefulObservation ? 1 : 0);
-        next.HeartAndSoulActive = action == Skills.HeartAndSoul || step.HeartAndSoulActive && (step.Condition is Condition.Good or Condition.Excellent || !ConsumeHeartAndSoul(action));
+        next.HeartAndSoulActive = action == Skills.HeartAndSoul || step.HeartAndSoulActive && (step.Condition is Condition.高品质 or Condition.最高品质 || !ConsumeHeartAndSoul(action));
         next.HeartAndSoulAvailable = step.HeartAndSoulAvailable && action != Skills.HeartAndSoul;
         next.QuickInnoAvailable = step.QuickInnoAvailable && action != Skills.QuickInnovation;
         next.PrevActionFailed = !success;
@@ -264,7 +264,7 @@ public static class Simulator
 
     public static bool CanUseAction(CraftState craft, StepState step, Skills action) => action switch
     {
-        Skills.IntensiveSynthesis or Skills.PreciseTouch or Skills.TricksOfTrade => step.Condition is Condition.Good or Condition.Excellent || step.HeartAndSoulActive,
+        Skills.IntensiveSynthesis or Skills.PreciseTouch or Skills.TricksOfTrade => step.Condition is Condition.高品质 or Condition.最高品质 || step.HeartAndSoulActive,
         Skills.PrudentSynthesis or Skills.PrudentTouch => step.WasteNotLeft == 0,
         Skills.MuscleMemory or Skills.Reflect => step.Index == 1,
         Skills.TrainedFinesse => step.IQStacks == 10,
@@ -290,7 +290,7 @@ public static class Simulator
             Skills.HastyTouch or Skills.DaringTouch => 0.6,
             _ => 1.0
         };
-        if (step.Condition == Condition.Centered)
+        if (step.Condition == Condition.安定)
             rate += 0.25;
         return rate;
     }
@@ -330,7 +330,7 @@ public static class Simulator
     public static int GetCPCost(StepState step, Skills action)
     {
         var cost = GetBaseCPCost(action, step.PrevComboAction);
-        if (step.Condition == Condition.Pliant)
+        if (step.Condition == Condition.高效)
             cost -= cost / 2; // round up
         return cost;
     }
@@ -349,12 +349,12 @@ public static class Simulator
         };
         if (step.WasteNotLeft > 0)
             cost -= cost / 2; // round up
-        if (step.Condition == Condition.Sturdy)
+        if (step.Condition == Condition.结实)
             cost -= cost / 2; // round up
         return cost;
     }
 
-    public static int GetNewBuffDuration(StepState step, int baseDuration) => baseDuration + (step.Condition == Condition.Primed ? 2 : 0);
+    public static int GetNewBuffDuration(StepState step, int baseDuration) => baseDuration + (step.Condition == Condition.长持续 ? 2 : 0);
     public static int GetOldBuffDuration(int prevDuration, Skills action, bool consume = false) => consume || prevDuration == 0 ? 0 : SkipUpdates(action) ? prevDuration : prevDuration - 1;
 
     public static int CalculateProgress(CraftState craft, StepState step, Skills action)
@@ -377,7 +377,7 @@ public static class Simulator
         float buffMod = 1 + (step.MuscleMemoryLeft > 0 ? 1 : 0) + (step.VenerationLeft > 0 ? 0.5f : 0);
         float effPotency = potency * buffMod;
 
-        float condMod = step.Condition == Condition.Malleable ? 1.5f : 1;
+        float condMod = step.Condition == Condition.大进展 ? 1.5f : 1;
         return (int)(BaseProgress(craft) * condMod * effPotency / 100);
     }
 
@@ -410,9 +410,9 @@ public static class Simulator
 
         float condMod = step.Condition switch
         {
-            Condition.Good => craft.Splendorous ? 1.75f : 1.5f,
-            Condition.Excellent => 4,
-            Condition.Poor => 0.5f,
+            Condition.高品质 => craft.Splendorous ? 1.75f : 1.5f,
+            Condition.最高品质 => 4,
+            Condition.低品质 => 0.5f,
             _ => 1
         };
         return (int)(BaseQuality(craft) * condMod * effPotency / 100);
@@ -429,11 +429,11 @@ public static class Simulator
 
     public static Condition GetNextCondition(CraftState craft, StepState step, float roll) => step.Condition switch
     {
-        Condition.Normal => GetTransitionByRoll(craft, step, roll),
-        Condition.Good => craft.CraftExpert ? GetTransitionByRoll(craft, step, roll) : Condition.Normal,
-        Condition.Excellent => Condition.Poor,
-        Condition.Poor => Condition.Normal,
-        Condition.GoodOmen => Condition.Good,
+        Condition.通常 => GetTransitionByRoll(craft, step, roll),
+        Condition.高品质 => craft.CraftExpert ? GetTransitionByRoll(craft, step, roll) : Condition.通常,
+        Condition.最高品质 => Condition.低品质,
+        Condition.低品质 => Condition.通常,
+        Condition.好兆头 => Condition.高品质,
         _ => GetTransitionByRoll(craft, step, roll)
     };
 
@@ -445,6 +445,6 @@ public static class Simulator
             if (roll < 0)
                 return (Condition)i;
         }
-        return Condition.Normal;
+        return Condition.通常;
     }
 }

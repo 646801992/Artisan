@@ -23,11 +23,12 @@ namespace Artisan.Universalis
             Dynamis = { 404, 405, 406, 407 },
             陆行鸟 = { 1167, 1081, 1042, 1044, 1060, 1173, 1174, 1175 },
             莫古力 = { 1172, 1076, 1171, 1170, 1113, 1121, 1166, 1176 },
-            猫小胖 = { 1192, 1183, 1180, 1186, 1201, 1068, 1064, 1187 },
-            한국 = { 2075, 2076, 2077, 2078, 2080 };
+            猫小胖 = { 1043, 1045, 1106, 1169, 1177, 1178, 1179 },
+            豆豆柴 = { 1180, 1183, 1186, 1192, 1201 },
+            한국 = { 2075, 2076, 2077, 2078, 2080, 2081 };
 
         public static readonly uint[][]
-            AllDCs = { Elemental, Gaia, Mana, Aether, Primal, Chaos, Light, Crystal, Materia, Meteor, Dynamis, 陆行鸟, 莫古力, 猫小胖, 한국 };
+            AllDCs = { Elemental, Gaia, Mana, Aether, Primal, Chaos, Light, Crystal, Materia, Meteor, Dynamis, 陆行鸟, 莫古力, 猫小胖, 豆豆柴, 한국 };
 
         public static uint[]? GetDataCenterByWorld(uint world)
         {
@@ -74,6 +75,8 @@ namespace Artisan.Universalis
                 return "莫古力";
             if (猫小胖.ContainsAll(dc))
                 return "猫小胖";
+            if (豆豆柴.ContainsAll(dc))
+                return "豆豆柴";
             if (한국.ContainsAll(dc))
                 return "한국";
 
@@ -98,10 +101,11 @@ namespace Artisan.Universalis
             NorthAmerica = new() { { "North-America", new() { DataCenters.Crystal, DataCenters.Aether, DataCenters.Primal, DataCenters.Dynamis } } },
             Oceania = new() { { "Oceania", new() { DataCenters.Materia } } },
             Europe = new() { { "Europe", new() { DataCenters.Chaos, DataCenters.Light } } },
-            中国 = new() { { "中国", new() { DataCenters.陆行鸟, DataCenters.莫古力, DataCenters.猫小胖, DataCenters.한국 } } };
+            中国 = new() { { "中国", new() { DataCenters.陆行鸟, DataCenters.莫古力, DataCenters.猫小胖, DataCenters.豆豆柴 } } },
+            한국 = new () { { "한국", new () { DataCenters.한국 } } };
 
         public static readonly Dictionary<string, List<uint[]>>[]
-            AllRegions = { Japan, NorthAmerica, Europe, Oceania, 中国 };
+            AllRegions = { Japan, NorthAmerica, Europe, Oceania, 中国, 한국 };
 
         public static string? GetRegionByWorld(uint world)
         {
@@ -129,6 +133,7 @@ namespace Artisan.Universalis
                 "Europe" => Europe,
                 "Oceania" => Oceania,
                 "中国" => 中国,
+                "한국" => 한국,
                 _ => null
             };
         }

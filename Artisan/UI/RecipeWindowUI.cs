@@ -96,7 +96,7 @@ namespace Artisan
 
                 if (P.Config.ReplaceSearch)
                 {
-                    searchLabel->GetAsAtkTextNode()->SetText("Artisan Search");
+                    searchLabel->GetAsAtkTextNode()->SetText("Artisan 搜索");
                 }
                 else
                 {
@@ -194,7 +194,7 @@ namespace Artisan
                     var scale = AtkResNodeFunctions.GetNodeScale(node);
                     var size = new Vector2(node->Width, node->Height) * scale;
                     var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
-                    var textSize = ImGui.CalcTextSize("Create Crafting List");
+                    var textSize = ImGui.CalcTextSize("创建制作清单");
 
                     ImGuiHelpers.ForceNextWindowMainViewport();
                     ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X, position.Y + (textSize.Y * scale.Y) + (14f * scale.Y)));
@@ -211,14 +211,14 @@ namespace Artisan
 
                     if (ImGui.GetIO().KeyShift)
                     {
-                        if (ImGui.Button($"Create Crafting List (Star only)", new Vector2(size.X / 2, 0)))
+                        if (ImGui.Button($"创建制作清单 (仅限星级)", new Vector2(size.X / 2, 0)))
                         {
                             CreateGCListAgent(atkUnitBase, false, true);
                             P.PluginUi.IsOpen = true;
                             P.PluginUi.OpenWindow = OpenWindow.Lists;
                         }
                         ImGui.SameLine();
-                        if (ImGui.Button($"Create Crafting List (with subcrafts) (Star only)", new Vector2(size.X / 2, 0)))
+                        if (ImGui.Button($"创建制作清单 (包含半成品) (仅限星级)", new Vector2(size.X / 2, 0)))
                         {
                             CreateGCListAgent(atkUnitBase, true, true);
                             P.PluginUi.IsOpen = true;
@@ -227,14 +227,14 @@ namespace Artisan
                     }
                     else
                     {
-                        if (ImGui.Button($"Create Crafting List", new Vector2(size.X / 2, 0)))
+                        if (ImGui.Button($"创建制作清单", new Vector2(size.X / 2, 0)))
                         {
                             CreateGCListAgent(atkUnitBase, false, false);
                             P.PluginUi.IsOpen = true;
                             P.PluginUi.OpenWindow = OpenWindow.Lists;
                         }
                         ImGui.SameLine();
-                        if (ImGui.Button($"Create Crafting List (with subcrafts)", new Vector2(size.X / 2, 0)))
+                        if (ImGui.Button($"创建制作清单 (包含半成品)", new Vector2(size.X / 2, 0)))
                         {
                             CreateGCListAgent(atkUnitBase, true, false);
                             P.PluginUi.IsOpen = true;
@@ -284,7 +284,7 @@ namespace Artisan
                     var size = new Vector2(node->Width, node->Height) * scale;
                     var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
 
-                    var textSize = ImGui.CalcTextSize("Create Crafting List");
+                    var textSize = ImGui.CalcTextSize("创建制作清单");
 
                     ImGuiHelpers.ForceNextWindowMainViewport();
                     ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X, position.Y - (textSize.Y * scale.Y) - (5f * scale.Y)));
@@ -301,7 +301,7 @@ namespace Artisan
 
                     if (ImGui.GetIO().KeyShift)
                     {
-                        if (ImGui.Button($"Create Crafting List (Star only)", new Vector2(size.X / 2, 0)))
+                        if (ImGui.Button($"创建制作清单 (仅限星级)", new Vector2(size.X / 2, 0)))
                         {
                             CreateGCList(atkUnitBase, false, true);
                             P.PluginUi.IsOpen = true;
@@ -313,7 +313,7 @@ namespace Artisan
                         ImGui.GetIO().FontGlobalScale = 0.80f * scale.X;
                         using (var f = ImRaii.PushFont(ImGui.GetFont()))
                         {
-                            if (ImGui.Button($"Create Crafting List (with subcrafts) (Star only)", new Vector2(size.X / 2, s.Y)))
+                            if (ImGui.Button($"创建制作清单 (包含半成品) (仅限星级)", new Vector2(size.X / 2, s.Y)))
                             {
                                 CreateGCList(atkUnitBase, true, true);
                                 P.PluginUi.IsOpen = true;
@@ -324,14 +324,14 @@ namespace Artisan
                     }
                     else
                     {
-                        if (ImGui.Button($"Create Crafting List", new Vector2(size.X / 2, 0)))
+                        if (ImGui.Button($"创建制作清单", new Vector2(size.X / 2, 0)))
                         {
                             CreateGCList(atkUnitBase, false, false);
                             P.PluginUi.IsOpen = true;
                             P.PluginUi.OpenWindow = OpenWindow.Lists;
                         }
                         ImGui.SameLine();
-                        if (ImGui.Button($"Create Crafting List (with subcrafts)", new Vector2(size.X / 2, 0)))
+                        if (ImGui.Button($"创建制作清单 (包含半成品)", new Vector2(size.X / 2, 0)))
                         {
                             CreateGCList(atkUnitBase, true, false);
                             P.PluginUi.IsOpen = true;
@@ -392,7 +392,7 @@ namespace Artisan
             craftingList.SetID();
             craftingList.Save(true);
 
-            Notify.Success("Crafting List Created");
+            Notify.Success("制作清单已创建");
         }
 
         private static uint TextureIdToJob(int textureId)
@@ -450,7 +450,7 @@ namespace Artisan
             craftingList.SetID();
             craftingList.Save(true);
 
-            Notify.Success("Crafting List Created");
+            Notify.Success("制作清单已创建");
         }
 
         private unsafe void DrawWorkshopOverlay()
@@ -477,7 +477,7 @@ namespace Artisan
                 var scale = AtkResNodeFunctions.GetNodeScale(node);
                 var size = new Vector2(node->Width, node->Height) * scale;
                 var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
-                var textSize = ImGui.CalcTextSize("Create crafting list for this phase");
+                var textSize = ImGui.CalcTextSize("创建此阶段的制作清单");
 
                 ImGuiHelpers.ForceNextWindowMainViewport();
                 ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + (4f * scale.X), position.Y + size.Y - textSize.Y - (34f * scale.Y)));
@@ -496,7 +496,7 @@ namespace Artisan
                     | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings);
 
 
-                if (ImGui.Button("Create crafting list for this phase"))
+                if (ImGui.Button("创建此阶段的制作清单"))
                 {
                     var itemNameNode = addonPtr->UldManager.NodeList[37]->GetAsAtkTextNode();
                     var phaseProgress = addonPtr->UldManager.NodeList[26]->GetAsAtkTextNode();
@@ -512,7 +512,7 @@ namespace Artisan
                             var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                             FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, false, null, project);
-                            Notify.Success("FC Workshop List Created");
+                            Notify.Success("部队工坊清单已创建");
                         }
                         else
                         {
@@ -525,13 +525,13 @@ namespace Artisan
                                 var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                                 FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, false, null, project);
-                                Notify.Success("FC Workshop List Created");
+                                Notify.Success("部队工坊清单已创建");
                             }
                         }
                     }
                 }
 
-                if (ImGui.Button("Create crafting list for this phase (including precrafts)"))
+                if (ImGui.Button("创建此阶段的制作清单 (包含半成品)"))
                 {
                     var itemNameNode = addonPtr->UldManager.NodeList[37]->GetAsAtkTextNode();
                     var phaseProgress = addonPtr->UldManager.NodeList[26]->GetAsAtkTextNode();
@@ -547,7 +547,7 @@ namespace Artisan
                             var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                             FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, true, null, project);
-                            Notify.Success("FC Workshop List Created");
+                            Notify.Success("部队工坊清单已创建");
                         }
                         else
                         {
@@ -560,7 +560,7 @@ namespace Artisan
                                 var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                                 FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, true, null, project);
-                                Notify.Success("FC Workshop List Created");
+                                Notify.Success("部队工坊清单已创建");
                             }
                         }
                     }
@@ -658,14 +658,14 @@ namespace Artisan
 
         private static void DrawCopyOfCraftMenu()
         {
-            if (ImGuiEx.AddHeaderIcon("OpenConfig", FontAwesomeIcon.Cog, new ImGuiEx.HeaderIconOptions() { Tooltip = "Open Config" }))
+            if (ImGuiEx.AddHeaderIcon("OpenConfig", FontAwesomeIcon.Cog, new ImGuiEx.HeaderIconOptions() { Tooltip = "打开设置" }))
             {
                 P.PluginUi.IsOpen = true;
             }
 
             bool autoMode = P.Config.AutoMode;
 
-            if (ImGui.Checkbox("Automatic Action Execution Mode", ref autoMode))
+            if (ImGui.Checkbox("自动执行模式", ref autoMode))
             {
                 P.Config.AutoMode = autoMode;
                 P.Config.Save();
@@ -675,7 +675,7 @@ namespace Artisan
             if (!CraftingListFunctions.HasItemsForRecipe(Endurance.RecipeID))
                 ImGui.BeginDisabled();
 
-            if (ImGui.Checkbox("Endurance Mode Toggle", ref enable))
+            if (ImGui.Checkbox("续航模式切换", ref enable))
             {
                 Endurance.ToggleEndurance(enable);
             }
@@ -688,7 +688,7 @@ namespace Artisan
                 {
                     var recipe = LuminaSheets.RecipeSheet!.First(x => x.Key == Endurance.RecipeID).Value;
                     ImGui.BeginTooltip();
-                    ImGui.Text($"You cannot start Endurance as you do not possess ingredients to craft this recipe.\r\nMissing: {string.Join(", ", PreCrafting.MissingIngredients(recipe))}");
+                    ImGui.Text($"你无法开始续航模式，因为你不具备制作该配方所需的材料。\r\n缺少: {string.Join(", ", PreCrafting.MissingIngredients(recipe))}");
                     ImGui.EndTooltip();
                 }
             }
@@ -740,7 +740,7 @@ namespace Artisan
 
                 if (SimpleTweaks.IsFocusTweakEnabled())
                 {
-                    ImGuiEx.TextWrapped(ImGuiColors.DalamudRed, $@"Warning: You have the ""Auto Focus Recipe Search"" SimpleTweak enabled. This is highly incompatible with Artisan and is recommended to disable it.");
+                    ImGuiEx.TextWrapped(ImGuiColors.DalamudRed, $@"警告: 你已开启 SimpleTweaksPlugin 的 ""Auto Focus Recipe Search"" 功能。 此功能与 Artisan 高度不兼容，建议禁用。");
                 }
                 if (Endurance.RecipeID != 0)
                 {
@@ -752,7 +752,7 @@ namespace Artisan
                     var craft = Crafting.BuildCraftStateForRecipe(stats, Job.CRP + recipe.CraftType.Row, recipe);
                     if (config.Draw(craft))
                     {
-                        Svc.Log.Debug($"Updating config for {recipe.RowId}");
+                        Svc.Log.Debug($"更新配置 {recipe.RowId}");
                         P.Config.RecipeConfigs[recipe.RowId] = config;
                         P.Config.Save();
                     }
@@ -764,7 +764,7 @@ namespace Artisan
                         if (!recipe.IsExpert)
                             ImGuiEx.TextWrapped(hintColor, solverHint);
                         else
-                            ImGuiEx.TextWrapped($"Please run this recipe in the simulator for results.");
+                            ImGuiEx.TextWrapped($"请在模拟器中运行此配方以获得结果。");
 
                         if (ImGui.IsItemClicked())
                         {
@@ -807,7 +807,7 @@ namespace Artisan
 
                         if (ImGui.IsItemHovered())
                         {
-                            ImGuiEx.Tooltip($"Click to open in simulator");
+                            ImGuiEx.Tooltip($"点击在模拟器中打开");
                         }
 
 
@@ -843,7 +843,7 @@ namespace Artisan
                 var size = new Vector2(node->Width, node->Height) * scale;
                 var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
                 //position += ImGuiHelpers.MainViewport.Pos;
-                var textHeight = ImGui.CalcTextSize("Craft X Times:");
+                var textHeight = ImGui.CalcTextSize("制作 X 次:");
                 var craftableCount = addonPtr->UldManager.NodeList[35]->GetAsAtkTextNode()->NodeText.ToString() == "" ? 0 : Convert.ToInt32(addonPtr->UldManager.NodeList[35]->GetAsAtkTextNode()->NodeText.ToString().GetNumbers());
 
                 if (craftableCount == 0) return;
@@ -875,7 +875,7 @@ namespace Artisan
             using (var font = ImRaii.PushFont(ImGui.GetFont()))
             {
                 ImGui.AlignTextToFramePadding();
-                ImGui.Text("Craft X Times:");
+                ImGui.Text("制作 X 次:");
                 ImGui.SameLine();
                 ImGui.PushItemWidth(110f * scale.X);
                 if (ImGui.InputInt($"###TimesRepeat{node->NodeId}", ref P.Config.CraftX))
@@ -890,7 +890,7 @@ namespace Artisan
                 ImGui.SameLine();
                 if (P.Config.CraftX > 0)
                 {
-                    if (ImGui.Button($"Craft {P.Config.CraftX}"))
+                    if (ImGui.Button($"制作 {P.Config.CraftX}"))
                     {
                         P.Config.CraftingX = true;
                         Endurance.ToggleEndurance(true);
@@ -898,7 +898,7 @@ namespace Artisan
                 }
                 else
                 {
-                    if (ImGui.Button($"Craft All ({craftableCount})"))
+                    if (ImGui.Button($"制作所有 ({craftableCount})"))
                     {
                         P.Config.CraftX = craftableCount;
                         P.Config.CraftingX = true;

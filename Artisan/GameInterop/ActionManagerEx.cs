@@ -26,7 +26,7 @@ public static unsafe class ActionManagerEx
         ActionType actionType = actionId >= 100000 ? ActionType.CraftAction : ActionType.Action;
         if (!CanUseAction(actionType, actionId))
             return false;
-        Svc.Log.Debug($"Using skill {skill}: {actionType} {actionId}");
+        Svc.Log.Debug($"正在使用技能： {skill}: {actionType} {actionId}");
         ActionManager.Instance()->UseAction(actionType, actionId);
         //Reset AFK timer
         var module = UIModule.Instance()->GetInputTimerModule();

@@ -9,7 +9,7 @@ namespace Artisan.CraftingLogic.Solvers;
 
 public class MacroSolverDefinition : ISolverDefinition
 {
-    public string MouseoverDescription { get; set; } = "This is the equivalent of an in-game macro, with less restrictions.";
+    public string MouseoverDescription { get; set; } = "这相当于游戏内的用户宏，但限制较少。";
 
     public IEnumerable<ISolverDefinition.Desc> Flavours(CraftState craft)
     {
@@ -18,7 +18,7 @@ public class MacroSolverDefinition : ISolverDefinition
             if (m.Steps.Count == 0) continue;
 
             var statsOk = m.Options.MinCraftsmanship <= craft.StatCraftsmanship && m.Options.MinControl <= craft.StatControl && m.Options.MinCP <= craft.StatCP;
-            yield return new(this, m.ID, 0, $"Macro: {m.Name}", statsOk ? "" : "You do not meet the minimum stats for this macro");
+            yield return new(this, m.ID, 0, $"生产宏:   {m.Name}", statsOk ? "" : "您不满足此宏的最低属性要求");
         }
     }
 
@@ -58,7 +58,7 @@ public class MacroSolver : Solver
                 continue;
             }
 
-            if (_macro.Options.SkipObservesIfNotPoor && step.Condition != Condition.Poor && action is Skills.Observe or Skills.CarefulObservation)
+            if (_macro.Options.SkipObservesIfNotPoor && step.Condition != Condition.低品质 && action is Skills.Observe or Skills.CarefulObservation)
             {
                 continue;
             }
@@ -68,16 +68,16 @@ public class MacroSolver : Solver
                 continue;
             }
 
-            if ((s.ExcludeNormal && step.Condition == Condition.Normal) ||
-                (s.ExcludeGood && step.Condition == Condition.Good) ||
-                (s.ExcludePoor && step.Condition == Condition.Poor) ||
-                (s.ExcludeExcellent && step.Condition == Condition.Excellent) ||
-                (s.ExcludeCentered && step.Condition == Condition.Centered) ||
-                (s.ExcludeSturdy && step.Condition == Condition.Sturdy) ||
-                (s.ExcludePliant && step.Condition == Condition.Pliant) ||
-                (s.ExcludeMalleable && step.Condition == Condition.Malleable) ||
-                (s.ExcludePrimed && step.Condition == Condition.Primed) ||
-                (s.ExcludeGoodOmen && step.Condition == Condition.GoodOmen))
+            if ((s.ExcludeNormal && step.Condition == Condition.通常) ||
+                (s.ExcludeGood && step.Condition == Condition.高品质) ||
+                (s.ExcludePoor && step.Condition == Condition.低品质) ||
+                (s.ExcludeExcellent && step.Condition == Condition.最高品质) ||
+                (s.ExcludeCentered && step.Condition == Condition.安定) ||
+                (s.ExcludeSturdy && step.Condition == Condition.结实) ||
+                (s.ExcludePliant && step.Condition == Condition.高效) ||
+                (s.ExcludeMalleable && step.Condition == Condition.大进展) ||
+                (s.ExcludePrimed && step.Condition == Condition.长持续) ||
+                (s.ExcludeGoodOmen && step.Condition == Condition.好兆头))
             {
                 continue;
             }
@@ -92,7 +92,7 @@ public class MacroSolver : Solver
                 action = fallback.Action;
             }
 
-            if (!s.ExcludeFromUpgrade && step.Condition is Condition.Good or Condition.Excellent)
+            if (!s.ExcludeFromUpgrade && step.Condition is Condition.高品质 or Condition.最高品质)
             {
                 if (_macro.Options.UpgradeQualityActions && ActionIsUpgradeableQuality(action) && Simulator.CanUseAction(craft, step, Skills.PreciseTouch))
                 {
@@ -110,8 +110,8 @@ public class MacroSolver : Solver
         // we've run out of macro steps, see if we can use solver to continue
         // TODO: this is not a very good condition, it depends on external state...
         if (!P.Config.DisableMacroArtisanRecommendation || CraftingListUI.Processing)
-            return new(fallback.Action, "Macro has completed. Now continuing with solver.");
-        return new(Skills.None, "Macro has completed. Please continue to manually craft.");
+            return new(fallback.Action, "宏已完成，现在继续使用求解器。");
+        return new(Skills.None, "生产宏已完成，请继续手动制作。");
     }
 
     private static bool ActionIsQuality(Skills skill) => skill is Skills.BasicTouch or Skills.StandardTouch or Skills.AdvancedTouch or Skills.HastyTouch or Skills.PreparatoryTouch

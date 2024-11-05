@@ -160,7 +160,7 @@ internal static class CraftingListContextMenu
         if (CraftingListUI.selectedList.ID == 0)
         {
             var menuItem = new MenuItem();
-            menuItem.Name = "Add to New Artisan Crafting List";
+            menuItem.Name = "添加到新的 Artisan 制作清单";
             menuItem.PrefixChar = 'A';
             menuItem.PrefixColor = 706;
             menuItem.OnClicked += clickedArgs => AddToNewList(ItemId, craftTypeIndex);
@@ -169,7 +169,7 @@ internal static class CraftingListContextMenu
             if (ingredientsSubCraft)
             {
                 var menuItem2 = new MenuItem();
-                menuItem2.Name = "Add to New Artisan Crafting List (with Sub-crafts)";
+                menuItem2.Name = "添加到新的 Artisan 制作清单 (包含半成品)";
                 menuItem2.PrefixChar = 'A';
                 menuItem2.PrefixColor = 706;
                 menuItem2.OnClicked += clickedArgs => AddToNewList(ItemId, craftTypeIndex, true);
@@ -180,7 +180,7 @@ internal static class CraftingListContextMenu
         else
         {
             var menuItem = new MenuItem();
-            menuItem.Name = "Add to Current Artisan Crafting List";
+            menuItem.Name = "添加到当前 Artisan 制作清单";
             menuItem.PrefixChar = 'A';
             menuItem.PrefixColor = 706;
             menuItem.OnClicked += clickedArgs => AddToList(ItemId, craftTypeIndex);
@@ -189,7 +189,7 @@ internal static class CraftingListContextMenu
             if (ingredientsSubCraft)
             {
                 var menuItem2 = new MenuItem();
-                menuItem2.Name = "Add to Current Artisan Crafting List (with Sub-crafts)";
+                menuItem2.Name = "添加到当前 Artisan 制作清单 (包含半成品)";
                 menuItem2.PrefixChar = 'A';
                 menuItem2.PrefixColor = 706;
                 menuItem2.OnClicked += clickedArgs => AddToList(ItemId, craftTypeIndex, true);

@@ -100,15 +100,15 @@ namespace Artisan.UI
 
         public static void Draw()
         {
-            if (ImGui.BeginTabBar("Simulator Select"))
+            if (ImGui.BeginTabBar("模拟器选择"))
             {
-                if (ImGui.BeginTabItem("GUI Sim"))
+                if (ImGui.BeginTabItem("图形用户界面模拟"))
                 {
                     DrawGUISim();
                     ImGui.EndTabItem();
                 }
 
-                if (ImGui.BeginTabItem("Mass Sim Mode"))
+                if (ImGui.BeginTabItem("大规模模拟模式"))
                 {
                     SimulatorUIVeynVersion.Draw();
                     ImGui.EndTabItem();
@@ -137,9 +137,9 @@ namespace Artisan.UI
 
                 DrawStatInfo();
 
-                if (ImGui.BeginTabBar("ModeSelection"))
+                if (ImGui.BeginTabBar("模式选择"))
                 {
-                    if (ImGui.BeginTabItem("Preconfigured Mode"))
+                    if (ImGui.BeginTabItem("预配置模式"))
                     {
                         inManualMode = false;
                         DrawPreconfiguredMode();
@@ -151,7 +151,7 @@ namespace Artisan.UI
                         ResetSim();
                     }
 
-                    if (ImGui.BeginTabItem("Manual Mode"))
+                    if (ImGui.BeginTabItem("手动模式 "))
                     {
                         inManualMode = true;
                         DrawSolverMode();
@@ -165,7 +165,7 @@ namespace Artisan.UI
 
         private static void DrawIntro()
         {
-            ImGuiEx.TextWrapped($"In this simulator, you can test out different solvers against recipes and analyze how well they perform. You can set your HQ ingredient layouts, set consumables and even which gearset to use. The simulator can be configured to randomize conditions or use \"Normal\" condition only, so actual execution mileage may vary.");
+            ImGuiEx.TextWrapped($"在此模拟器中，你可以针对配方测试不同的求解器并分析它们的性能。你可以设置 HQ 材料、设置消耗品，甚至可以设置要使用的装备套装。模拟器可以配置为使用随机状态或仅使用 \"通常\" 状态，所以实际执行时可能会有所不同。");
         }
 
         private static void DrawSolverMode()
@@ -196,7 +196,7 @@ namespace Artisan.UI
                 }
                 else
                 {
-                    ImGui.Text($"Please have a gearset selected from above to use this feature.");
+                    ImGui.Text($"请从上面选择一个装备套装来使用此功能。");
                 }
             }
             else
@@ -234,17 +234,17 @@ namespace Artisan.UI
         {
             if (SimActionIDs.Count > 0 && (_simCurSolver is not MacroSolver || inManualMode) && !hoverMode)
             {
+                //ImGui.SameLine();
+                ImGuiEx.Text($"生产宏名称：");
                 ImGui.SameLine();
-                ImGuiEx.Text($"Macro Name");
+                //ImGuiEx.SetNextItemFullWidth(-120);
+                ImGui.InputText($"###MacroName", ref macroName, 100, ImGuiInputTextFlags.EnterReturnsTrue);
                 ImGui.SameLine();
-                ImGuiEx.SetNextItemFullWidth(-120);
-                ImGui.InputText($"###MacroName", ref macroName, 300, ImGuiInputTextFlags.EnterReturnsTrue);
-                ImGui.SameLine();
-                if (ImGui.Button($"Export As Macro"))
+                if (ImGui.Button($"作为宏导出"))
                 {
                     if (string.IsNullOrEmpty(macroName))
                     {
-                        Notify.Error("Please provide a name for the macro");
+                        Notify.Error("请为生产宏提供​​一个名称");
                         return;
                     }
                     MacroSolverSettings.Macro newMacro = new();
@@ -265,7 +265,7 @@ namespace Artisan.UI
                 if (ImGui.IsItemHovered())
                 {
                     ImGui.BeginTooltip();
-                    ImGuiEx.Text($"This will also automatically assign the macro to this recipe.");
+                    ImGuiEx.Text($"这也会将宏自动分配给该配方。");
                     ImGui.EndTooltip();
                 }
             }
@@ -274,7 +274,7 @@ namespace Artisan.UI
         private static void DrawSimulation()
         {
 
-            if (ImGui.Button($"Reset"))
+            if (ImGui.Button($"重置"))
             {
                 ResetSim();
             }
@@ -304,11 +304,11 @@ namespace Artisan.UI
                         {
                             ImGui.BeginTooltip();
                             ImGuiEx.Text($"{step.Index - 1}. {currentAction.NameOfAction()}");
-                            ImGuiEx.Text($"P: {step.Progress} / {_selectedCraft.CraftProgress} ({Math.Round((float)step.Progress / _selectedCraft.CraftProgress * 100, 0)}%)");
-                            ImGuiEx.Text($"Q: {step.Quality} / {_selectedCraft.CraftQualityMax} ({Math.Round((float)step.Quality / _selectedCraft.CraftQualityMax * 100, 0)}%)");
-                            ImGuiEx.Text($"D: {step.Durability} / {_selectedCraft.CraftDurability} ({Math.Round((float)step.Durability / _selectedCraft.CraftDurability * 100, 0)}%)");
-                            ImGuiEx.Text($"CP: {step.RemainingCP} / {_selectedCraft.StatCP} ({Math.Round((float)step.RemainingCP / _selectedCraft.StatCP * 100, 0)}%)");
-                            ImGuiEx.Text($"Condition: {_simCurSteps[i].step.Condition} -> {step.Condition}");
+                            ImGuiEx.Text($"进展: {step.Progress} / {_selectedCraft.CraftProgress} ({Math.Round((float)step.Progress / _selectedCraft.CraftProgress * 100, 0)}%)");
+                            ImGuiEx.Text($"品质: {step.Quality} / {_selectedCraft.CraftQualityMax} ({Math.Round((float)step.Quality / _selectedCraft.CraftQualityMax * 100, 0)}%)");
+                            ImGuiEx.Text($"耐久: {step.Durability} / {_selectedCraft.CraftDurability} ({Math.Round((float)step.Durability / _selectedCraft.CraftDurability * 100, 0)}%)");
+                            ImGuiEx.Text($"制作力: {step.RemainingCP} / {_selectedCraft.StatCP} ({Math.Round((float)step.RemainingCP / _selectedCraft.StatCP * 100, 0)}%)");
+                            ImGuiEx.Text($"状态: {_simCurSteps[i].step.Condition} -> {step.Condition}");
                             ImGui.EndTooltip();
                         }
                         if (ImGui.IsItemClicked())
@@ -375,7 +375,7 @@ namespace Artisan.UI
         }
         private static void DrawActionWidgets()
         {
-            ActionChild("Progress Actions", 6, () =>
+            ActionChild("进展技能", 6, () =>
             {
                 DrawActionWidget(Skills.BasicSynthesis);
                 DrawActionWidget(Skills.CarefulSynthesis);
@@ -386,7 +386,7 @@ namespace Artisan.UI
             });
 
             ImGui.SameLine();
-            ActionChild("Quality Actions", 12, () =>
+            ActionChild("品质技能", 12, () =>
             {
                 DrawActionWidget(Skills.BasicTouch);
                 DrawActionWidget(Skills.StandardTouch);
@@ -402,7 +402,7 @@ namespace Artisan.UI
                 DrawActionWidget(Skills.DaringTouch);
             });
 
-            ActionChild("Buff Actions", 9, () =>
+            ActionChild("增益技能", 9, () =>
             {
                 DrawActionWidget(Skills.WasteNot);
                 DrawActionWidget(Skills.WasteNot2);
@@ -416,7 +416,7 @@ namespace Artisan.UI
             });
 
             ImGui.SameLine();
-            ActionChild("Repair", 3, () =>
+            ActionChild("修理", 3, () =>
             {
                 DrawActionWidget(Skills.Manipulation);
                 DrawActionWidget(Skills.MastersMend);
@@ -424,7 +424,7 @@ namespace Artisan.UI
             });
 
             ImGui.SameLine();
-            ActionChild("Other", 6, () =>
+            ActionChild("其他", 6, () =>
             {
                 DrawActionWidget(Skills.Observe);
                 DrawActionWidget(Skills.HeartAndSoul);
@@ -448,7 +448,7 @@ namespace Artisan.UI
                 if (!P.Config.DisableSimulatorActionTooltips)
                 {
                     ImGui.BeginTooltip();
-                    ImGuiEx.Text($"{action.NameOfAction()} - {action.StandardCPCost()} CP");
+                    ImGuiEx.Text($"{action.NameOfAction()} - {action.StandardCPCost()} 制作力");
                     ImGuiEx.Text($"{action.GetSkillDescription()}");
                     ImGui.EndTooltip();
                 }
@@ -481,11 +481,11 @@ namespace Artisan.UI
                 {
                     if (nextstep.Item1 == Simulator.ExecuteResult.CantUse)
                     {
-                        Notify.Error($"Cannot use {action.NameOfAction()}.");
+                        Notify.Error($"无法使用 {action.NameOfAction()}.");
                     }
                     if (nextstep.Item1 == Simulator.ExecuteResult.Failed)
                     {
-                        Notify.Error($"{action.NameOfAction()} has failed");
+                        Notify.Error($"{action.NameOfAction()} 失败");
                     }
                     hoverStepAdded = false;
                 }
@@ -499,11 +499,11 @@ namespace Artisan.UI
                         var step = Simulator.Execute(_selectedCraft, initial, action, 0, 1);
                         if (step.Item1 == Simulator.ExecuteResult.CantUse)
                         {
-                            Notify.Error($"Cannot use {action.NameOfAction()}.");
+                            Notify.Error($"无法使用 {action.NameOfAction()}.");
                         }
                         if (step.Item1 == Simulator.ExecuteResult.Failed)
                         {
-                            Notify.Error($"{action.NameOfAction()} has failed");
+                            Notify.Error($"{action.NameOfAction()} 失败");
                         }
                         if (step.Item1 == Simulator.ExecuteResult.Succeeded)
                         {
@@ -516,11 +516,11 @@ namespace Artisan.UI
                         var step = Simulator.Execute(_selectedCraft, _simCurSteps.Last().step, action, 0, 1);
                         if (step.Item1 == Simulator.ExecuteResult.CantUse)
                         {
-                            Notify.Error($"Cannot use {action.NameOfAction()}.");
+                            Notify.Error($"无法使用 {action.NameOfAction()}.");
                         }
                         if (step.Item1 == Simulator.ExecuteResult.Failed)
                         {
-                            Notify.Error($"{action.NameOfAction()} has failed");
+                            Notify.Error($"{action.NameOfAction()} 失败");
                         }
                         if (step.Item1 == Simulator.ExecuteResult.Succeeded)
                         {
@@ -538,7 +538,7 @@ namespace Artisan.UI
         {
             if (SimGS is null && !CustomStatMode)
             {
-                ImGui.Text($"Please have a gearset selected from above to use this feature.");
+                ImGui.Text($"请从上面选择一个装备套装来使用此功能。");
                 return;
             }
             DrawSolverCombo();
@@ -550,7 +550,7 @@ namespace Artisan.UI
             if (_selectedSolver != null && (SimGS != null || CustomStatMode))
             {
                 ImGuiEx.SetNextItemFullWidth();
-                if (ImGui.Button($"Run Simulated Solver"))
+                if (ImGui.Button($"运行模拟求解器"))
                 {
                     _simCurSolver = _selectedSolver?.Clone();
                     ResetSim();
@@ -558,7 +558,7 @@ namespace Artisan.UI
                     while (SolveNextSimulator(_selectedCraft)) ;
                 }
                 ImGui.SameLine();
-                if (ImGui.Checkbox($"Assume Normal Condition only", ref assumeNormalStatus))
+                if (ImGui.Checkbox($"假设仅有\"通常\"状态", ref assumeNormalStatus))
                 {
                     _selectedCraft = Crafting.BuildCraftStateForRecipe(SimStats, Job.CRP + SelectedRecipe.CraftType.Row, SelectedRecipe);
                     _simCurSteps.Clear();
@@ -582,11 +582,11 @@ namespace Artisan.UI
                             {
                                 ImGui.BeginTooltip();
                                 ImGuiEx.Text($"{step.Index - 1}. {currentAction.NameOfAction()}");
-                                ImGuiEx.Text($"P: {step.Progress} / {_selectedCraft.CraftProgress} ({Math.Round((float)step.Progress / _selectedCraft.CraftProgress * 100, 0)}%)");
-                                ImGuiEx.Text($"Q: {step.Quality} / {_selectedCraft.CraftQualityMax} ({Math.Round((float)step.Quality / _selectedCraft.CraftQualityMax * 100, 0)}%)");
-                                ImGuiEx.Text($"D: {step.Durability} / {_selectedCraft.CraftDurability} ({Math.Round((float)step.Durability / _selectedCraft.CraftDurability * 100, 0)}%)");
-                                ImGuiEx.Text($"CP: {step.RemainingCP} / {_selectedCraft.StatCP} ({Math.Round((float)step.RemainingCP / _selectedCraft.StatCP * 100, 0)}%)");
-                                ImGuiEx.Text($"Condition: {_simCurSteps[i].step.Condition} -> {step.Condition}");
+                                ImGuiEx.Text($"进展: {step.Progress} / {_selectedCraft.CraftProgress} ({Math.Round((float)step.Progress / _selectedCraft.CraftProgress * 100, 0)}%)");
+                                ImGuiEx.Text($"品质: {step.Quality} / {_selectedCraft.CraftQualityMax} ({Math.Round((float)step.Quality / _selectedCraft.CraftQualityMax * 100, 0)}%)");
+                                ImGuiEx.Text($"耐久: {step.Durability} / {_selectedCraft.CraftDurability} ({Math.Round((float)step.Durability / _selectedCraft.CraftDurability * 100, 0)}%)");
+                                ImGuiEx.Text($"制作力: {step.RemainingCP} / {_selectedCraft.StatCP} ({Math.Round((float)step.RemainingCP / _selectedCraft.StatCP * 100, 0)}%)");
+                                ImGuiEx.Text($"状态: {_simCurSteps[i].step.Condition} -> {step.Condition}");
                                 ImGui.EndTooltip();
                             }
 
@@ -624,21 +624,21 @@ namespace Artisan.UI
             float CPPercent = (float)(_simCurSteps.Last().step.RemainingCP / _selectedCraft.StatCP);
 
             ImGui.PushStyleColor(ImGuiCol.Text, successColor);
-            ImGuiEx.LineCentered($"SimResults", () => ImGuiEx.TextUnderlined($"Simulator Result - {status.ToOutputString()}"));
+            ImGuiEx.LineCentered($"SimResults", () => ImGuiEx.TextUnderlined($"模拟结果 - {status.ToOutputString()}"));
             ImGui.Columns(4, null, false);
-            ImGuiEx.TextCentered($"Quality (IQ: {_simCurSteps.Last().step.IQStacks})");
+            ImGuiEx.TextCentered($"品质 (IQ: {_simCurSteps.Last().step.IQStacks})");
             ImGuiEx.SetNextItemFullWidth();
             DrawProgress(_simCurSteps.Last().step.Quality, _selectedCraft.CraftQualityMax);
             ImGui.NextColumn();
-            ImGuiEx.TextCentered($"Progress");
+            ImGuiEx.TextCentered($"进展");
             ImGuiEx.SetNextItemFullWidth();
             DrawProgress(_simCurSteps.Last().step.Progress, _selectedCraft.CraftProgress);
             ImGui.NextColumn();
-            ImGuiEx.TextCentered($"CP");
+            ImGuiEx.TextCentered($"制作力");
             ImGuiEx.SetNextItemFullWidth();
             DrawProgress(_simCurSteps.Last().step.RemainingCP, _selectedCraft.StatCP);
             ImGui.NextColumn();
-            ImGuiEx.TextCentered($"Durability");
+            ImGuiEx.TextCentered($"耐久");
             ImGuiEx.SetNextItemFullWidth();
             DrawProgress(_simCurSteps.Last().step.Durability, _selectedCraft.CraftDurability);
             ImGui.NextColumn();
@@ -684,16 +684,16 @@ namespace Artisan.UI
                 // TODO: this is all very unconfirmed, we really need a process to gather this data
                 var potentialConditions = recipe.RecipeLevelTable.Value?.ConditionsFlag ?? 0;
                 var manyConditions = (potentialConditions & 0x1F0) == 0x1F0; // it seems that when all conditions are available, each one has slightly lower probability?
-                var haveGoodOmen = (potentialConditions & (1 << (int)Condition.GoodOmen)) != 0; // it seems that when good omen is possible, straight good is quite a bit rarer
-                craft.CraftConditionProbabilities = new float[(int)Condition.Unknown];
-                craft.CraftConditionProbabilities[(int)Condition.Good] = haveGoodOmen ? 0.04f : 0.12f;
-                craft.CraftConditionProbabilities[(int)Condition.Centered] = manyConditions ? 0.12f : 0.15f;
-                craft.CraftConditionProbabilities[(int)Condition.Sturdy] = manyConditions ? 0.12f : 0.15f;
-                craft.CraftConditionProbabilities[(int)Condition.Pliant] = manyConditions ? 0.10f : 0.12f;
-                craft.CraftConditionProbabilities[(int)Condition.Malleable] = manyConditions ? 0.10f : 0.12f;
-                craft.CraftConditionProbabilities[(int)Condition.Primed] = manyConditions ? 0.12f : 0.15f;
-                craft.CraftConditionProbabilities[(int)Condition.GoodOmen] = 0.12f;
-                for (Condition i = Condition.Good; i < Condition.Unknown; ++i)
+                var haveGoodOmen = (potentialConditions & (1 << (int)Condition.好兆头)) != 0; // it seems that when good omen is possible, straight good is quite a bit rarer
+                craft.CraftConditionProbabilities = new float[(int)Condition.未知];
+                craft.CraftConditionProbabilities[(int)Condition.高品质] = haveGoodOmen ? 0.04f : 0.12f;
+                craft.CraftConditionProbabilities[(int)Condition.安定] = manyConditions ? 0.12f : 0.15f;
+                craft.CraftConditionProbabilities[(int)Condition.结实] = manyConditions ? 0.12f : 0.15f;
+                craft.CraftConditionProbabilities[(int)Condition.高效] = manyConditions ? 0.10f : 0.12f;
+                craft.CraftConditionProbabilities[(int)Condition.大进展] = manyConditions ? 0.10f : 0.12f;
+                craft.CraftConditionProbabilities[(int)Condition.长持续] = manyConditions ? 0.12f : 0.15f;
+                craft.CraftConditionProbabilities[(int)Condition.好兆头] = 0.12f;
+                for (Condition i = Condition.高品质; i < Condition.未知; ++i)
                     if ((potentialConditions & (1 << (int)i)) == 0)
                         craft.CraftConditionProbabilities[(int)i] = 0;
             }
@@ -705,8 +705,8 @@ namespace Artisan.UI
 
         private static void DrawSolverCombo()
         {
-            ImGui.Text($"Select Solver");
-            ImGui.SameLine(120f);
+            ImGui.Text($"选择求解器");
+            ImGui.SameLine(180f);
             ImGuiEx.SetNextItemFullWidth();
             using var solverCombo = ImRaii.Combo("###SolverCombo", _selectedSolver == null ? "" : $"{_selectedSolver?.Name}");
             if (!solverCombo)
@@ -733,7 +733,7 @@ namespace Artisan.UI
 
         private static void DrawFoodDropdown()
         {
-            ImGui.Text($"Select Food");
+            ImGui.Text($"选择食物");
             ImGui.SameLine(120f);
             ImGuiEx.SetNextItemFullWidth();
             using var foodCombo = ImRaii.Combo("###SimFood", SimFood is null ? "" : $"{(SimFood.ConsumableHQ ? " " : "")} {LuminaSheets.ItemSheet[SimFood.Id].Name.RawString} ({SimFood.ConsumableString})");
@@ -773,7 +773,7 @@ namespace Artisan.UI
 
         private static void DrawMedicineDropdown()
         {
-            ImGui.Text($"Select Medicine");
+            ImGui.Text($"选择药水");
             ImGui.SameLine(120f);
             ImGuiEx.SetNextItemFullWidth();
             using var medicineCombo = ImRaii.Combo("###SimMedicine", SimMedicine is null ? "" : $"{(SimMedicine.ConsumableHQ ? " " : "")} {LuminaSheets.ItemSheet[SimMedicine.Id].Name.RawString} ({SimMedicine.ConsumableString})");
@@ -819,7 +819,7 @@ namespace Artisan.UI
         {
             if (SimGS != null)
             {
-                ImGuiEx.LineCentered("SimulatorStats", () => ImGuiEx.TextUnderlined("Crafter Stats"));
+                ImGuiEx.LineCentered("SimulatorStats", () => ImGuiEx.TextUnderlined("制 作 统 计"));
                 var gs = SimGS.Value; //Ugh, can't pass nullable refs
                 var gsStats = CharacterStats.GetBaseStatsGearset(ref gs);
                 var craftsmanshipBoost = (SimFood == null ? 0 : SimFood.Stats.Stats.FirstOrDefault(x => x.Param == 70).Effective(gsStats.Craftsmanship)) + (SimMedicine == null ? 0 : SimMedicine.Stats.Stats.FirstOrDefault(x => x.Param == 70).Effective(gsStats.Craftsmanship));
@@ -827,17 +827,17 @@ namespace Artisan.UI
                 var cpBoost = (SimFood == null ? 0 : SimFood.Stats.Stats.FirstOrDefault(x => x.Param == 11).Effective(gsStats.CP)) + (SimMedicine == null ? 0 : SimMedicine.Stats.Stats.FirstOrDefault(x => x.Param == 11).Effective(gsStats.CP));
 
                 ImGui.Columns(3, null, false);
-                ImGui.TextWrapped($"Craftsmanship: {gsStats.Craftsmanship + craftsmanshipBoost} ({gsStats.Craftsmanship} + {craftsmanshipBoost})");
+                ImGui.TextWrapped($"作业精度: {gsStats.Craftsmanship + craftsmanshipBoost} ({gsStats.Craftsmanship} + {craftsmanshipBoost})");
                 ImGui.NextColumn();
-                ImGui.TextWrapped($"Control: {gsStats.Control + controlBoost} ({gsStats.Control} + {controlBoost})");
+                ImGui.TextWrapped($"加工精度: {gsStats.Control + controlBoost} ({gsStats.Control} + {controlBoost})");
                 ImGui.NextColumn();
-                ImGui.TextWrapped($"CP: {gsStats.CP + cpBoost} ({gsStats.CP} + {cpBoost})");
+                ImGui.TextWrapped($"制作力: {gsStats.CP + cpBoost} ({gsStats.CP} + {cpBoost})");
                 ImGui.NextColumn();
-                ImGui.TextWrapped($"Splendorous Tool: {gsStats.Splendorous}");
+                ImGui.TextWrapped($"卓越工具: {gsStats.Splendorous}");
                 ImGui.NextColumn();
-                ImGui.TextWrapped($"Specialist: {gsStats.Specialist}");
+                ImGui.TextWrapped($"专家: {gsStats.Specialist}");
                 ImGui.NextColumn();
-                ImGui.TextWrapped($"Manipulation Unlocked: {gsStats.Manipulation}");
+                ImGui.TextWrapped($"解锁掌握: {gsStats.Manipulation}");
                 ImGui.Columns(1);
 
                 SimStats = new CharacterStats()
@@ -858,12 +858,12 @@ namespace Artisan.UI
         {
             if (!CustomStatMode)
             {
-                if (ImGui.Button($"Switch to Custom Stat Mode", new (ImGui.GetContentRegionAvail().X, 0)))
+                if (ImGui.Button($"切换到自定义模式", new (ImGui.GetContentRegionAvail().X, 0)))
                     CustomStatMode = true;
             }
             else
             {
-                if (ImGui.Button($"Switch to Gearset Mode", new(ImGui.GetContentRegionAvail().X, 0)))
+                if (ImGui.Button($"切换到装备套装模式", new(ImGui.GetContentRegionAvail().X, 0)))
                     CustomStatMode = false;
             }
 
@@ -873,7 +873,7 @@ namespace Artisan.UI
 
                 if (validGS == 0)
                 {
-                    ImGuiEx.Text($"Please add a gearset for {LuminaSheets.ClassJobSheet[SelectedRecipe.CraftType.Row + 8].Abbreviation}");
+                    ImGuiEx.Text($"请为 {LuminaSheets.ClassJobSheet[SelectedRecipe.CraftType.Row + 8].Abbreviation} 添加一套装备套装");
                     SimGS = null;
                     return;
                 }
@@ -882,7 +882,7 @@ namespace Artisan.UI
                     var gs = RaptureGearsetModule.Instance()->Entries.ToArray().First(x => RaptureGearsetModule.Instance()->IsValidGearset(x.Id) && x.ClassJob == SelectedRecipe?.CraftType.Row + 8);
                     SimGS = gs;
                     string name = gs.NameString;
-                    ImGuiEx.Text($"Gearset");
+                    ImGuiEx.Text($"套装");
                     ImGui.SameLine(120f);
                     ImGuiEx.SetNextItemFullWidth();
                     ImGuiEx.Text($"{name} (ilvl {SimGS?.ItemLevel})");
@@ -890,7 +890,7 @@ namespace Artisan.UI
                 }
 
 
-                ImGui.Text($"Select Gearset");
+                ImGui.Text($"选择套装");
                 ImGui.SameLine(120f);
                 ImGuiEx.SetNextItemFullWidth();
                 using var combo = ImRaii.Combo("###SimGS", SimGS is null ? "" : SimGSName);
@@ -922,20 +922,20 @@ namespace Artisan.UI
                 SimGS = null;
 
                 ImGui.Columns(4, null, false);
-                ImGUIMethods.InputIntBound($"Level:", ref gsLevel, 1, 100, true);
+                ImGUIMethods.InputIntBound($"等级:", ref gsLevel, 1, 100, true);
                 ImGui.NextColumn();
-                ImGUIMethods.InputIntBound($"Craftsmanship:", ref gsCraftsmanship, 1, 99999, true);
+                ImGUIMethods.InputIntBound($"作业精度:", ref gsCraftsmanship, 1, 99999, true);
                 ImGui.NextColumn();
-                ImGUIMethods.InputIntBound($"Control:", ref gsControl, 1, 99999, true);
+                ImGUIMethods.InputIntBound($"加工精度:", ref gsControl, 1, 99999, true);
                 ImGui.NextColumn();
-                ImGUIMethods.InputIntBound($"CP:", ref gsCP, 1, 99999, true);
+                ImGUIMethods.InputIntBound($"制作力:", ref gsCP, 1, 99999, true);
                 ImGui.NextColumn();
                 ImGui.Columns(3, null, false);
-                ImGUIMethods.FlippedCheckbox($"Splendorous:", ref gsSplend);
+                ImGUIMethods.FlippedCheckbox($"卓越工具:", ref gsSplend);
                 ImGui.NextColumn();
-                ImGUIMethods.FlippedCheckbox($"Specialist:", ref gsSpecialist);
+                ImGUIMethods.FlippedCheckbox($"专家:", ref gsSpecialist);
                 ImGui.NextColumn();
-                ImGUIMethods.FlippedCheckbox($"Manipulation Unlocked:", ref gsManip);
+                ImGUIMethods.FlippedCheckbox($"解锁掌握:", ref gsManip);
                 ImGui.Columns(1);
 
                 SimStats = new CharacterStats()
@@ -964,11 +964,11 @@ namespace Artisan.UI
 
                 ImGuiEx.ImGuiLineCentered("StartingQuality", () =>
                 {
-                    ImGuiEx.Text($"Starting Quality: {startingQuality} / {max} ({hqChance}% HQ chance, {percentage.ToString("N0")}% quality)");
+                    ImGuiEx.Text($"初期品质: {startingQuality} / {max} ({hqChance}% 优质率, {percentage.ToString("N0")}% 品质)");
                 });
                 ImGuiEx.ImGuiLineCentered("ExpertInfo", () =>
                 {
-                    ImGuiEx.Text($"{(SelectedRecipe.IsExpert ? "Expert Recipe" : SelectedRecipe.SecretRecipeBook.Row > 0 ? "Master Recipe" : "Normal Recipe")}");
+                    ImGuiEx.Text($"{(SelectedRecipe.IsExpert ? "导出配方" : SelectedRecipe.SecretRecipeBook.Row > 0 ? "Master Recipe" : "Normal Recipe")}");
                 });
 
             }
@@ -987,12 +987,12 @@ namespace Artisan.UI
             if (!group)
                 return;
 
-            ImGuiEx.ImGuiLineCentered("###LayoutIngredients", () => ImGuiEx.TextUnderlined("Ingredient Layouts"));
+            ImGuiEx.ImGuiLineCentered("###LayoutIngredients", () => ImGuiEx.TextUnderlined("材 料 布 局"));
             using var table = ImRaii.Table("###SimulatorRecipeIngredients", 3, ImGuiTableFlags.Borders | ImGuiTableFlags.NoHostExtendX);
             if (!table)
                 return;
 
-            ImGui.TableSetupColumn("Material", ImGuiTableColumnFlags.WidthFixed, ImGui.GetContentRegionAvail().X - (hasHQ ? 200f.Scale() : 80f.Scale()));
+            ImGui.TableSetupColumn("材料", ImGuiTableColumnFlags.WidthFixed, ImGui.GetContentRegionAvail().X - (hasHQ ? 200f.Scale() : 80f.Scale()));
             ImGui.TableSetupColumn("NQ", ImGuiTableColumnFlags.WidthFixed);
             ImGui.TableSetupColumn("HQ", ImGuiTableColumnFlags.WidthFixed);
 
@@ -1077,14 +1077,14 @@ namespace Artisan.UI
                                       ? string.Empty
                                       : $"{SelectedRecipe?.ItemResult.Value.Name.RawString} ({LuminaSheets.ClassJobSheet[SelectedRecipe.CraftType.Row + 8].Abbreviation.RawString})";
 
-            ImGuiEx.Text($"Select Recipe");
-            ImGui.SameLine(120f.Scale());
+            ImGuiEx.Text($"选择配方");
+            ImGui.SameLine(80f.Scale());
             ImGuiEx.SetNextItemFullWidth();
             if (ImGui.BeginCombo("###SimulatorRecipeSelect", preview))
             {
                 try
                 {
-                    ImGui.Text("Search");
+                    ImGui.Text("搜索");
                     ImGui.SameLine();
                     ImGui.InputText("###RecipeSearch", ref Search, 100);
 

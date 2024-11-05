@@ -159,7 +159,7 @@ public unsafe struct CharacterStats
 
     public override string ToString()
     {
-        return $"Craft: {Craftsmanship}; Control: {Control}; CP: {CP}; Level: {Level}; Splendorous: {Splendorous}; Specialist: {Specialist}; Manipulation: {Manipulation};";
+        return $"作业精度: {Craftsmanship}; 加工精度: {Control}; 制作力: {CP}; 等级: {Level}; 卓越工具: {Splendorous}; 专家: {Specialist}; 掌握: {Manipulation};";
     }
 
     // current in-game stats
