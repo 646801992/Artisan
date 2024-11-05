@@ -1,12 +1,12 @@
 [submodule "ECommons"]
 	path = ECommons
-	url = https://github.com/Taurenkey/ECommons.git
+	url = https://github.com/mokeling/ECommons.git
 [submodule "PunishLib"]
 	path = PunishLib
-	url = https://github.com/PunishXIV/PunishLib.git
+	url = https://github.com/mokeling/PunishLib.git
 [submodule "ClickLib"]
 	path = ClickLib
-	url = https://github.com/Taurenkey/ClickLib.git
+	url = https://github.com/mokeling/ClickLib.git
 [submodule "OtterGui"]
 	path = OtterGui
-	url = https://github.com/Taurenkey/OtterGui
+	url = https://github.com/mokeling/OtterGui.git
