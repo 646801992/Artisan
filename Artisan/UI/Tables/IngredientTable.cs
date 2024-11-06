@@ -381,7 +381,7 @@ namespace Artisan.UI.Tables
                 {
                     var listing = CheapestListings[item.Data.RowId];
 
-                    return $"{listing.World} - Cost {listing.Cost.ToString("N0")}, Qty {listing.Qty}";
+                    return $"{listing.World} - 花费 {listing.Cost.ToString("N0")}, 数量 {listing.Qty}";
 
                 }
 

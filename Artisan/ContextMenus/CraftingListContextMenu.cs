@@ -59,7 +59,7 @@ internal static class CraftingListContextMenu
 
         var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.Row == ItemId).RowId;
 
-        if (ImGui.Selectable($"Open Recipe Log"))
+        if (ImGui.Selectable($"打开制作笔记"))
         {
             CraftingListFunctions.OpenRecipeByID(recipeId);
         }
@@ -87,7 +87,7 @@ internal static class CraftingListContextMenu
             var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.Row == itemId).RowId;
 
             var menuItem = new MenuItem();
-            menuItem.Name = "Open Recipe Log";
+            menuItem.Name = "打开制作笔记";
             menuItem.PrefixChar = 'A';
             menuItem.PrefixColor = 706;
             menuItem.OnClicked += clickedArgs => CraftingListFunctions.OpenRecipeByID(recipeId, true);
@@ -124,7 +124,7 @@ internal static class CraftingListContextMenu
 
             var subMenu = new MenuItem();
             subMenu.IsSubmenu = true;
-            subMenu.Name = "Artisan Crafting List";
+            subMenu.Name = "Artisan 制作清单";
             subMenu.PrefixChar = 'A';
             subMenu.PrefixColor = 706;
 
@@ -144,7 +144,7 @@ internal static class CraftingListContextMenu
             var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.Row == ItemId).RowId;
 
             var menuItem = new MenuItem();
-            menuItem.Name = "Open Recipe Log";
+            menuItem.Name = "打开制作笔记";
             menuItem.PrefixChar = 'A';
             menuItem.PrefixColor = 706;
             menuItem.OnClicked += clickedArgs => CraftingListFunctions.OpenRecipeByID(recipeId, true);
@@ -316,7 +316,7 @@ internal static class CraftingListContextMenu
         CraftingListHelpers.TidyUpList(CraftingListUI.selectedList);
         foreach (var w in P.ws.Windows)
         {
-            if (w.WindowName == $"List Editor###{CraftingListUI.selectedList.ID}")
+            if (w.WindowName == $"清单编辑器###{CraftingListUI.selectedList.ID}")
             {
                 (w as ListEditor).RecipeSelector.Items = CraftingListUI.selectedList.Recipes.ToList();
                 (w as ListEditor).RefreshTable(null, true);

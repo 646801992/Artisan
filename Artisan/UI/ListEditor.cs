@@ -91,7 +91,7 @@ internal class ListEditor : Window, IDisposable
     IngredientHelpers IngredientHelper = new();
 
     public ListEditor(int listId)
-        : base($"List Editor###{listId}")
+        : base($"清单编辑器###{listId}")
     {
         SelectedList = P.Config.NewCraftingLists.First(x => x.ID == listId);
         RecipeSelector = new RecipeSelector(SelectedList.ID);
@@ -1436,7 +1436,7 @@ internal class ListFolders : ItemSelector<NewCraftingList>
 
     protected override string DeleteButtonTooltip()
     {
-        return "Permanently delete this crafting list.\r\nHold Ctrl + Click.\r\nThis cannot be undone.";
+        return "永久删除此制作清单。\r\n按住 Ctrl 点击。\r\n此操作无法撤消。";
     }
 
     protected override bool Filtered(int idx)

@@ -968,7 +968,7 @@ namespace Artisan.UI
                 });
                 ImGuiEx.ImGuiLineCentered("ExpertInfo", () =>
                 {
-                    ImGuiEx.Text($"{(SelectedRecipe.IsExpert ? "导出配方" : SelectedRecipe.SecretRecipeBook.Row > 0 ? "Master Recipe" : "Normal Recipe")}");
+                    ImGuiEx.Text($"{(SelectedRecipe.IsExpert ? "导出配方" : SelectedRecipe.SecretRecipeBook.Row > 0 ? "专家配方" : "普通配方")}");
                 });
 
             }
