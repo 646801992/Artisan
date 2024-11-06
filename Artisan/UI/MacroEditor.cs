@@ -26,7 +26,7 @@ namespace Artisan.UI
         private bool Raweditor = false;
         private static string _rawMacro = string.Empty;
 
-        public MacroEditor(MacroSolverSettings.Macro macro) : base($"Macro Editor###{macro.ID}", ImGuiWindowFlags.None)
+        public MacroEditor(MacroSolverSettings.Macro macro) : base($"生产宏编辑器###{macro.ID}", ImGuiWindowFlags.None)
         {
             SelectedMacro = macro;
             selectedStepIndex = macro.Steps.Count - 1;
