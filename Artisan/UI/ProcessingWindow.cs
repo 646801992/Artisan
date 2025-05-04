@@ -1,21 +1,21 @@
 ﻿using Artisan.CraftingLists;
-using Dalamud.Interface;
+using Artisan.GameInterop;
+using Artisan.RawInformation;
 using Dalamud.Interface.Windowing;
-using ECommons.DalamudServices;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
 using System;
-using System.Linq;
 
 namespace Artisan.UI
 {
     internal class ProcessingWindow : Window
     {
-        public ProcessingWindow() : base("Processing List###ProcessingList", ImGuiWindowFlags.AlwaysAutoResize)
+        public ProcessingWindow() : base("Processing List###ProcessingList", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse)
         {
             IsOpen = true;
             ShowCloseButton = false;
             RespectCloseHotkey = false;
+            SizeCondition = ImGuiCond.Appearing;
         }
 
         public override bool DrawConditions()
@@ -23,15 +23,14 @@ namespace Artisan.UI
             if (CraftingListUI.Processing)
                 return true;
 
-            return false;  
+            return false;
         }
 
         public override void PreDraw()
         {
-            if (!P.config.DisableTheme)
+            if (!P.Config.DisableTheme)
             {
                 P.Style.Push();
-                ImGui.PushFont(P.CustomFont);
                 P.StylePushed = true;
             }
         }
@@ -41,7 +40,6 @@ namespace Artisan.UI
             if (P.StylePushed)
             {
                 P.Style.Pop();
-                ImGui.PopFont();
                 P.StylePushed = false;
             }
         }
@@ -50,20 +48,25 @@ namespace Artisan.UI
         {
             if (CraftingListUI.Processing)
             {
-                Service.Framework.RunOnFrameworkThread(() => CraftingListFunctions.ProcessList(CraftingListUI.selectedList));
-                
-                if (ImGuiEx.AddHeaderIcon("OpenConfig", FontAwesomeIcon.Cog, new ImGuiEx.HeaderIconOptions() { Tooltip = "打开设置" }))
-                {
-                    P.PluginUi.Visible = true;
-                }
+                CraftingListFunctions.ProcessList(CraftingListUI.selectedList);
 
-                ImGui.Text($"当前进展: {CraftingListUI.selectedList.Name}");
+                //if (ImGuiEx.AddHeaderIcon("OpenConfig", FontAwesomeIcon.Cog, new ImGuiEx.HeaderIconOptions() { Tooltip = "Open Config" }))
+                //{
+                //    P.PluginUi.IsOpen = true;
+                //}
+
+                ImGui.Text($"正在制作: {CraftingListUI.selectedList.Name}");
                 ImGui.Separator();
                 ImGui.Spacing();
                 if (CraftingListUI.CurrentProcessedItem != 0)
                 {
-                    ImGuiEx.TextV($"尝试制作: {CraftingListUI.FilteredList[CraftingListUI.CurrentProcessedItem].ItemResult.Value.Name.RawString}");
-                    ImGuiEx.TextV($"总体进展: {CraftingListFunctions.CurrentIndex + 1} / {CraftingListUI.selectedList.Items.Count}");
+                    ImGuiEx.TextV($"制作: {LuminaSheets.RecipeSheet[CraftingListUI.CurrentProcessedItem].ItemResult.Value.Name.RawString}");
+                    ImGuiEx.TextV($"当前项目进度: {CraftingListUI.CurrentProcessedItemCount} / {CraftingListUI.CurrentProcessedItemListCount}");
+                    ImGuiEx.TextV($"总体项目进度: {CraftingListFunctions.CurrentIndex + 1} / {CraftingListUI.selectedList.ExpandedList.Count}");
+
+                    string duration = CraftingListFunctions.ListEndTime == TimeSpan.Zero ? "未知" : string.Format("{0:D2}d {1:D2}h {2:D2}m {3:D2}s", CraftingListFunctions.ListEndTime.Days, CraftingListFunctions.ListEndTime.Hours, CraftingListFunctions.ListEndTime.Minutes, CraftingListFunctions.ListEndTime.Seconds);
+                    ImGuiEx.TextV($"预计剩余时长: {duration}");
+
                 }
 
                 if (!CraftingListFunctions.Paused)
@@ -71,16 +74,20 @@ namespace Artisan.UI
                     if (ImGui.Button("暂停"))
                     {
                         CraftingListFunctions.Paused = true;
+                        P.TM.Abort();
+                        CraftingListFunctions.CLTM.Abort();
+                        PreCrafting.Tasks.Clear();
                     }
                 }
                 else
                 {
                     if (ImGui.Button("恢复"))
                     {
-                        if (CraftingListFunctions.RecipeWindowOpen())
-                            CraftingListFunctions.CloseCraftingMenu();
-
-                        Svc.Framework.RunOnTick(() => CraftingListFunctions.OpenRecipeByID(CraftingListUI.CurrentProcessedItem, true), TimeSpan.FromSeconds(1));
+                        if (Crafting.CurState is Crafting.State.IdleNormal or Crafting.State.IdleBetween)
+                        {
+                            var recipe = LuminaSheets.RecipeSheet[CraftingListUI.CurrentProcessedItem];
+                            PreCrafting.Tasks.Add((() => PreCrafting.TaskSelectRecipe(recipe), default));
+                        }
 
                         CraftingListFunctions.Paused = false;
                     }
@@ -90,6 +97,11 @@ namespace Artisan.UI
                 if (ImGui.Button("取消"))
                 {
                     CraftingListUI.Processing = false;
+                    CraftingListFunctions.Paused = false;
+                    P.TM.Abort();
+                    CraftingListFunctions.CLTM.Abort();
+                    PreCrafting.Tasks.Clear();
+                    Crafting.CraftFinished -= CraftingListUI.UpdateListTimer;
                 }
             }
         }

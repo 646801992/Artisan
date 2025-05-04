@@ -1,6 +1,10 @@
 ﻿using Artisan.Autocraft;
 using Artisan.CraftingLists;
+using Artisan.RawInformation;
 using ECommons.DalamudServices;
+using ECommons.Logging;
+using OtterGui;
+using System;
 
 namespace Artisan.IPC
 {
@@ -10,7 +14,7 @@ namespace Artisan.IPC
 
         public static bool StopCraftingRequest
         {
-            get => stopCraftingRequest; 
+            get => stopCraftingRequest;
             set
             {
                 if (value)
@@ -19,7 +23,8 @@ namespace Artisan.IPC
                 }
                 else
                 {
-                    ResumeCrafting();
+                    if (!Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.WaitingForDutyFinder] && !Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BoundByDuty])
+                        ResumeCrafting();
                 }
                 stopCraftingRequest = value;
             }
@@ -37,6 +42,8 @@ namespace Artisan.IPC
 
             Svc.PluginInterface.GetIpcProvider<bool>("Artisan.GetStopRequest").RegisterFunc(GetStopRequest);
             Svc.PluginInterface.GetIpcProvider<bool, object>("Artisan.SetStopRequest").RegisterAction(SetStopRequest);
+
+            Svc.PluginInterface.GetIpcProvider<ushort, int, object>("Artisan.CraftItem").RegisterAction(CraftX);
         }
 
         internal static void Dispose()
@@ -50,16 +57,18 @@ namespace Artisan.IPC
 
             Svc.PluginInterface.GetIpcProvider<bool>("Artisan.GetStopRequest").UnregisterFunc();
             Svc.PluginInterface.GetIpcProvider<bool, object>("Artisan.SetStopRequest").UnregisterAction();
+
+            Svc.PluginInterface.GetIpcProvider<ushort, int, object>("Artisan.CraftItem").UnregisterAction();
         }
 
         static bool GetEnduranceStatus()
         {
-            return Handler.Enable;
+            return Endurance.Enable;
         }
 
         static void SetEnduranceStatus(bool s)
         {
-            Handler.Enable = s;
+            Endurance.Enable = s;
         }
 
         static bool IsListRunning()
@@ -85,7 +94,35 @@ namespace Artisan.IPC
 
         static void SetStopRequest(bool s)
         {
+            if (s)
+                DuoLog.Information("已请求 Artisan 通过外部插件停止。");
+            else
+                DuoLog.Information("外部插件已请求 Artisan 重新启动。");
+
             StopCraftingRequest = s;
+        }
+
+        public unsafe static void CraftX(ushort recipeId, int amount)
+        {
+            if (LuminaSheets.RecipeSheet!.FindFirst(x => x.Value.RowId == recipeId, out var recipe))
+            {
+                P.TM.Enqueue(() =>
+                {
+                    CraftingListFunctions.OpenRecipeByID(recipeId);
+                });
+                P.TM.DelayNext(100);
+                P.TM.Enqueue(() =>
+                {
+                    Endurance.RecipeID = recipeId;
+                    P.Config.CraftX = amount;
+                    P.Config.CraftingX = true;
+                    Endurance.ToggleEndurance(true);
+                });
+            }
+            else
+            {
+                throw new Exception("未找到 RecipeID。");
+            }
         }
 
         public enum ArtisanMode

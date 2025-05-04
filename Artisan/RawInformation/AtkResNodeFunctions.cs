@@ -1,16 +1,8 @@
-﻿using Artisan.Autocraft;
-using ClickLib.Clicks;
-using ClickLib.Enums;
-using ClickLib.Structures;
-using Dalamud.Interface;
-using ECommons.DalamudServices;
-using ECommons.ImGuiMethods;
-using FFXIVClientStructs.FFXIV.Component.GUI;
+﻿using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
 using System;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.InteropServices;
 
 namespace Artisan.RawInformation
 {
@@ -48,7 +40,7 @@ namespace Artisan.RawInformation
                 ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X, position.Y + (node->Height - textSize.Y)));
             ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(2f, 0f));
             ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f, 0f));
-            ImGui.Begin($"###EHQ{itemName}{node->NodeID}", ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoScrollbar
+            ImGui.Begin($"###EHQ{itemName}{node->NodeId}", ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoScrollbar
                 | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoMouseInputs | ImGuiWindowFlags.NoNavFocus
                 | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings);
             ImGui.TextUnformatted(str);
@@ -85,7 +77,7 @@ namespace Artisan.RawInformation
 
         internal static unsafe void DrawQualitySlider(AtkResNode* node, string selectedCraftName)
         {
-            if (!Service.Configuration.UseSimulatedStartingQuality) return;
+            if (!P.Config.UseSimulatedStartingQuality) return;
 
             var position = GetNodePosition(node);
             var scale = GetNodeScale(node);
@@ -98,9 +90,9 @@ namespace Artisan.RawInformation
             if (sheetItem == null)
                 return;
 
-            var currentSimulated = Service.Configuration.CurrentSimulated;
+            var currentSimulated = P.Config.CurrentSimulated;
             if (sheetItem.MaterialQualityFactor == 0) return;
-            var maxFactor = sheetItem.MaterialQualityFactor == 0 ? 0 : Math.Floor((double)sheetItem.RecipeLevelTable.Value.Quality * ((double)sheetItem.MaterialQualityFactor / 100) * ((double)sheetItem.QualityFactor / 100));
+            var maxFactor = sheetItem.MaterialQualityFactor == 0 ? 0 : Math.Floor(sheetItem.RecipeLevelTable.Value.Quality * ((double)sheetItem.MaterialQualityFactor / 100) * ((double)sheetItem.QualityFactor / 100));
             if (currentSimulated > (int)maxFactor)
                 currentSimulated = (int)maxFactor;
 
@@ -112,69 +104,16 @@ namespace Artisan.RawInformation
             ImGui.Begin($"###SliderQuality", ImGuiWindowFlags.NoScrollbar
                 | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoNavFocus
                 | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar);
-            var textSize = ImGui.CalcTextSize("Simulated Starting Quality");
-            ImGui.TextUnformatted($"Simulated Starting Quality");
+            var textSize = ImGui.CalcTextSize("模拟初期品质");
+            ImGui.TextUnformatted($"模拟初期品质");
             ImGui.PushItemWidth(textSize.Length());
             if (ImGui.SliderInt("", ref currentSimulated, 0, (int)maxFactor))
             {
-                Service.Configuration.CurrentSimulated = currentSimulated;
-                Service.Configuration.Save();
+                P.Config.CurrentSimulated = currentSimulated;
+                P.Config.Save();
             }
             ImGui.End();
             ImGui.PopStyleVar(2);
         }
-
-        public static unsafe void ClickButton(AtkUnitBase* window, AtkComponentButton* target, uint which, EventType type = EventType.CHANGE)
-            => ClickAddonComponent(window, target->AtkComponentBase.OwnerNode, which, type);
-
-        public static unsafe void ClickAddonCheckBox(AtkUnitBase* window, AtkComponentCheckBox* target, uint which, EventType type = EventType.CHANGE)
-             => ClickAddonComponent(window, target->AtkComponentButton.AtkComponentBase.OwnerNode, which, type);
-
-
-        public static unsafe void ClickAddonComponent(AtkUnitBase* UnitBase, AtkComponentNode* target, uint which, EventType type, EventData? eventData = null, InputData? inputData = null)
-        {
-            eventData ??= EventData.ForNormalTarget(target, UnitBase);
-            inputData ??= InputData.Empty();
-
-            InvokeReceiveEvent(&UnitBase->AtkEventListener, type, which, eventData, inputData);
-        }
-
-        /// <summary>
-        /// AtkUnitBase receive event delegate.
-        /// </summary>
-        /// <param name="eventListener">Type receiving the event.</param>
-        /// <param name="evt">Event type.</param>
-        /// <param name="which">Internal routing number.</param>
-        /// <param name="eventData">Event data.</param>
-        /// <param name="inputData">Keyboard and mouse data.</param>
-        /// <returns>The addon address.</returns>
-        internal unsafe delegate IntPtr ReceiveEventDelegate(AtkEventListener* eventListener, EventType evt, uint which, void* eventData, void* inputData);
-
-
-        /// <summary>
-        /// Invoke the receive event delegate.
-        /// </summary>
-        /// <param name="eventListener">Type receiving the event.</param>
-        /// <param name="type">Event type.</param>
-        /// <param name="which">Internal routing number.</param>
-        /// <param name="eventData">Event data.</param>
-        /// <param name="inputData">Keyboard and mouse data.</param>
-        private static unsafe void InvokeReceiveEvent(AtkEventListener* eventListener, EventType type, uint which, EventData eventData, InputData inputData)
-        {
-            var receiveEvent = GetReceiveEvent(eventListener);
-            receiveEvent(eventListener, type, which, eventData.Data, inputData.Data);
-        }
-
-        private static unsafe ReceiveEventDelegate GetReceiveEvent(AtkEventListener* listener)
-        {
-            var receiveEventAddress = new IntPtr(listener->vfunc[2]);
-            return Marshal.GetDelegateForFunctionPointer<ReceiveEventDelegate>(receiveEventAddress)!;
-        }
-
-        private static unsafe ReceiveEventDelegate GetReceiveEvent(AtkComponentBase* listener)
-            => GetReceiveEvent(&listener->AtkEventListener);
-
-        private static unsafe ReceiveEventDelegate GetReceiveEvent(AtkUnitBase* listener)
-            => GetReceiveEvent(&listener->AtkEventListener);
     }
 }

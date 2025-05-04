@@ -1,9 +1,7 @@
 ﻿using Artisan.Autocraft;
-using Artisan.RawInformation;
-using Dalamud.Game.ClientState.Objects;
-using Dalamud.Game.ClientState.Objects.Types;
+using Artisan.RawInformation.Character;
 using ECommons.DalamudServices;
-using ECommons.GameFunctions;
+using ECommons.ExcelServices;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using System.Collections.Generic;
 using System.Linq;
@@ -179,7 +177,7 @@ namespace Artisan.QuestSync
         public unsafe static bool HasIngredientsForAny()
         {
             QuestManager* qm = QuestManager.Instance();
-            foreach (var quest in qm->DailyQuestsSpan)
+            foreach (var quest in qm->DailyQuests)
             {
                 if (quest.IsCompleted) continue;
 
@@ -190,7 +188,7 @@ namespace Artisan.QuestSync
                 }
             }
 
-            foreach (var quest in qm->NormalQuestsSpan)
+            foreach (var quest in qm->NormalQuests)
             {
                 if (quest.QuestId == 1493)
                 {
@@ -220,13 +218,13 @@ namespace Artisan.QuestSync
                 questId = 1493;
 
             QuestManager* qm = QuestManager.Instance();
-            foreach (var quest in qm->DailyQuestsSpan)
+            foreach (var quest in qm->DailyQuests)
             {
                 if (quest.QuestId == questId && !quest.IsCompleted)
                     return true;
             }
 
-            foreach (var quest in qm->NormalQuestsSpan)
+            foreach (var quest in qm->NormalQuests)
             {
                 if (quest.QuestId == questId)
                     return true;
@@ -238,36 +236,18 @@ namespace Artisan.QuestSync
         public unsafe static uint GetRecipeForQuest(ushort questId)
         {
             QuestManager* qm = QuestManager.Instance();
-            foreach (var quest in qm->DailyQuestsSpan)
+            foreach (var quest in qm->DailyQuests)
             {
                 if (quest.QuestId > 0 && !quest.IsCompleted)
                 {
                     if (Quests.TryGetValue(questId, out var dict))
                     {
-                        switch (CharacterInfo.JobID())
-                        {
-                            case 8:
-                                return dict.CRP;
-                            case 9:
-                                return dict.BSM;
-                            case 10:
-                                return dict.ARM;
-                            case 11:
-                                return dict.GSM;
-                            case 12:
-                                return dict.LTW;
-                            case 13:
-                                return dict.WVR;
-                            case 14:
-                                return dict.ALC;
-                            case 15:
-                                return dict.CUL;
-                        }
+                        return dict.ForJob(CharacterInfo.JobID);
                     }
                 }
             }
 
-            foreach (var quest in qm->NormalQuestsSpan)
+            foreach (var quest in qm->NormalQuests)
             {
                 if (quest.QuestId == 1493)
                 {
@@ -276,48 +256,12 @@ namespace Artisan.QuestSync
 
                     if (CraftingLists.CraftingListFunctions.HasItemsForRecipe(step1.CRP))
                     {
-                        switch (CharacterInfo.JobID())
-                        {
-                            case 8:
-                                return step1.CRP;
-                            case 9:
-                                return step1.BSM;
-                            case 10:
-                                return step1.ARM;
-                            case 11:
-                                return step1.GSM;
-                            case 12:
-                                return step1.LTW;
-                            case 13:
-                                return step1.WVR;
-                            case 14:
-                                return step1.ALC;
-                            case 15:
-                                return step1.CUL;
-                        }
+                        return step1.ForJob(CharacterInfo.JobID);
                     }
 
                     if (CraftingLists.CraftingListFunctions.HasItemsForRecipe(step2.CRP))
                     {
-                        switch (CharacterInfo.JobID())
-                        {
-                            case 8:
-                                return step2.CRP;
-                            case 9:
-                                return step2.BSM;
-                            case 10:
-                                return step2.ARM;
-                            case 11:
-                                return step2.GSM;
-                            case 12:
-                                return step2.LTW;
-                            case 13:
-                                return step2.WVR;
-                            case 14:
-                                return step2.ALC;
-                            case 15:
-                                return step2.CUL;
-                        }
+                        return step2.ForJob(CharacterInfo.JobID);
                     }
                 }
 
@@ -325,25 +269,7 @@ namespace Artisan.QuestSync
                 {
                     if (Quests.TryGetValue(questId, out var dict))
                     {
-                        switch (CharacterInfo.JobID())
-                        {
-                            case 8:
-                                return dict.CRP;
-                            case 9:
-                                return dict.BSM;
-                            case 10:
-                                return dict.ARM;
-                            case 11:
-                                return dict.GSM;
-                            case 12:
-                                return dict.LTW;
-                            case 13:
-                                return dict.WVR;
-                            case 14:
-                                return dict.ALC;
-                            case 15:
-                                return dict.CUL;
-                        }
+                        return dict.ForJob(CharacterInfo.JobID);
                     }
                 }
             }
@@ -354,7 +280,7 @@ namespace Artisan.QuestSync
         internal unsafe static bool IsOnSayQuest()
         {
             QuestManager* qm = QuestManager.Instance();
-            foreach (var quest in qm->DailyQuestsSpan)
+            foreach (var quest in qm->DailyQuests)
             {
                 if (!quest.IsCompleted)
                 {
@@ -375,7 +301,7 @@ namespace Artisan.QuestSync
         internal unsafe static bool IsOnEmoteQuest()
         {
             QuestManager* qm = QuestManager.Instance();
-            foreach (var quest in qm->DailyQuestsSpan)
+            foreach (var quest in qm->DailyQuests)
             {
                 if (!quest.IsCompleted)
                 {
@@ -406,7 +332,7 @@ namespace Artisan.QuestSync
 
         internal unsafe static string GetSayQuestString(ushort questId)
         {
-            foreach (var quest in QuestManager.Instance()->DailyQuestsSpan)
+            foreach (var quest in QuestManager.Instance()->DailyQuests)
             {
                 if (quest.IsCompleted && quest.QuestId == questId) return "";
             }
@@ -414,16 +340,16 @@ namespace Artisan.QuestSync
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "free kupo nuts";
-                    case Dalamud.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.French:
                         return "Je sais où trouver des noix de kupo";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Kupo-Nüsse für alle Helfer!";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "クポの実あるよ";
-                    case Dalamud.ClientLanguage.ChineseSimplified:
-                        return "有库啵果哦";
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
+                        return "库啵果";
                 }
 
             }
@@ -431,14 +357,14 @@ namespace Artisan.QuestSync
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.French:
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "lali-ho";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Holladrio";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "ラリホー";
-                    case Dalamud.ClientLanguage.ChineseSimplified:
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
                         return "啦哩吼";
                 }
             }
@@ -446,31 +372,31 @@ namespace Artisan.QuestSync
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "dream bigger";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "ドリームマシマシ";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Traummaschine";
-                    case Dalamud.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.French:
                         return "rêves à gogo";
-                   // case Dalamud.ClientLanguage.ChineseSimplified:
-                   //     return "";        兔兔族任务
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
+                        return "梦想加倍";
                 }
             }
             if (questId == 1497)
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "With the Wind";
-                    case Dalamud.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.French:
                         return "Tel le vent";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Sei eins mit dem Wind!";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "風のごとく！";
-                    case Dalamud.ClientLanguage.ChineseSimplified:
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
                         return "乘风而起";
                 }
             }
@@ -478,15 +404,15 @@ namespace Artisan.QuestSync
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "his whiskers";
-                    case Dalamud.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.French:
                         return "la gloire de la grande frairie";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Große Flosse";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "おおなまずのまにまに";
-                    case Dalamud.ClientLanguage.ChineseSimplified:
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
                         return "大鲶鱼保佑";
                 }
             }
@@ -494,15 +420,15 @@ namespace Artisan.QuestSync
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "Now Fall";
-                    case Dalamud.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.French:
                         return "Nous nous envolerons";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Ab durch die Wolken!";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "天を翔ける！";
-                    case Dalamud.ClientLanguage.ChineseSimplified:
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
                         return "翱翔天际";
                 }
             }
@@ -510,15 +436,15 @@ namespace Artisan.QuestSync
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "High as Honor";
-                    case Dalamud.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.French:
                         return "Haut dans le ciel";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Hoch hinaus!";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "もっと高く！";
-                    case Dalamud.ClientLanguage.ChineseSimplified:
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
                         return "展翅高飞";
                 }
             }
@@ -526,15 +452,15 @@ namespace Artisan.QuestSync
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "Wings Unbending";
-                    case Dalamud.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.French:
                         return "Ayatlan, terre sacrée";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Mögen deine Schwingen nie brechen!";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "折れぬ翼を！";
-                    case Dalamud.ClientLanguage.ChineseSimplified:
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
                         return "不屈之翼";
                 }
             }
@@ -542,15 +468,15 @@ namespace Artisan.QuestSync
             {
                 switch (Svc.ClientState.ClientLanguage)
                 {
-                    case Dalamud.ClientLanguage.English:
+                    case Dalamud.Game.ClientLanguage.English:
                         return "Amid the Flowers";
-                    case Dalamud.ClientLanguage.French:
+                    case Dalamud.Game.ClientLanguage.French:
                         return "Bientôt nous retrouverons";
-                    case Dalamud.ClientLanguage.German:
+                    case Dalamud.Game.ClientLanguage.German:
                         return "Der unerfüllte Traum der Ixal!";
-                    case Dalamud.ClientLanguage.Japanese:
+                    case Dalamud.Game.ClientLanguage.Japanese:
                         return "果てぬ夢を！";
-                    case Dalamud.ClientLanguage.ChineseSimplified:
+                    case Dalamud.Game.ClientLanguage.ChineseSimplified:
                         return "追梦无限";
                 }
             }
@@ -570,6 +496,19 @@ namespace Artisan.QuestSync
         public uint WVR;
         public uint ALC;
         public uint CUL;
+
+        public uint ForJob(Job job) => job switch
+        {
+            Job.CRP => CRP,
+            Job.BSM => BSM,
+            Job.ARM => ARM,
+            Job.GSM => GSM,
+            Job.LTW => LTW,
+            Job.WVR => WVR,
+            Job.ALC => ALC,
+            Job.CUL => CUL,
+            _ => 0
+        };
     }
 
     public class EmoteConverter

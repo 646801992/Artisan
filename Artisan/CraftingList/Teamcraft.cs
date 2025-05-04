@@ -1,8 +1,9 @@
-﻿using Artisan.Autocraft;
-using Artisan.RawInformation;
+﻿using Artisan.RawInformation;
+using Artisan.UI;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
 using Dalamud.Utility;
+using ECommons.DalamudServices;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
@@ -12,7 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text;
-using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace Artisan.CraftingLists
 {
@@ -22,31 +23,27 @@ namespace Artisan.CraftingLists
         internal static string importListPreCraft = "";
         internal static string importListItems = "";
         internal static bool openImportWindow = false;
+        private static bool precraftQS = false;
+        private static bool finalitemQS = false;
 
         internal static void DrawTeamCraftListButtons()
         {
-            ImGui.SetCursorPosY(ImGui.GetWindowSize().Y - 93);
-            if (ImGui.BeginChild("###TeamCraftSection", new Vector2(0, 0), false))
+            string labelText = "Teamcraft 清单";
+            var labelLength = ImGui.CalcTextSize(labelText);
+            ImGui.SetCursorPosX((ImGui.GetContentRegionMax().X - labelLength.X) * 0.5f);
+            ImGui.TextColored(ImGuiColors.ParsedGreen, labelText);
+            if (IconButtons.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Download, "导入", new Vector2(ImGui.GetContentRegionAvail().X, 15f.Scale())))
             {
-                string labelText = "Teamcraft清单";
-                var labelLength = ImGui.CalcTextSize(labelText);
-                ImGui.SetCursorPosX((ImGui.GetContentRegionMax().X - labelLength.X) * 0.5f);
-                ImGui.TextColored(ImGuiColors.ParsedGreen, labelText);
-                if (IconButtons.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Download, "导入", new Vector2(ImGui.GetContentRegionAvail().X, 30)))
-                {
-                    openImportWindow = true;
-                }
-                OpenTeamcraftImportWindow();
-                if (CraftingListUI.selectedList.ID != 0)
-                {
-                    if (IconButtons.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Upload, "导出", new Vector2(ImGui.GetContentRegionAvail().X, 30), true))
-                    {
-                        ExportSelectedListToTC();
-                    }
-                }
-                
+                openImportWindow = true;
             }
-            ImGui.EndChild();
+            OpenTeamcraftImportWindow();
+            if (CraftingListUI.selectedList.ID != 0)
+            {
+                if (IconButtons.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Upload, "导出", new Vector2(ImGui.GetContentRegionAvail().X, 15f.Scale()), true))
+                {
+                    ExportSelectedListToTC();
+                }
+            }
         }
 
         private static void ExportSelectedListToTC()
@@ -54,26 +51,26 @@ namespace Artisan.CraftingLists
             string baseUrl = "https://ffxivteamcraft.com/import/";
             string exportItems = "";
 
-            var sublist = CraftingListUI.selectedList.Items.Distinct().Reverse().ToList();
-            for (int i = 0; i < sublist.Count(); i++)
+            var sublist = CraftingListUI.selectedList.Recipes.Distinct().Reverse().ToList();
+            for (int i = 0; i < sublist.Count; i++)
             {
-                if (i >= sublist.Count()) break;
+                if (i >= sublist.Count) break;
+                
+                int number = CraftingListUI.selectedList.Recipes[i].Quantity;
+                var recipe = LuminaSheets.RecipeSheet[sublist[i].ID];
+                var ItemId = recipe.ItemResult.Value.RowId;
 
-                int number = CraftingListUI.selectedList.Items.Count(x => x == sublist[i]);
-                var recipe = CraftingListUI.FilteredList[sublist[i]];
-                var itemID = recipe.ItemResult.Value.RowId;
-
-                Dalamud.Logging.PluginLog.Debug($"{recipe.ItemResult.Value.Name.RawString} {sublist.Count()}");
+                Svc.Log.Debug($"{recipe.ItemResult.Value.Name.RawString} {sublist.Count}");
                 ExtractRecipes(sublist, recipe);
             }
 
             foreach (var item in sublist)
             {
-                int number = CraftingListUI.selectedList.Items.Count(x => x == item);
-                var recipe = CraftingListUI.FilteredList[item];
-                var itemID = recipe.ItemResult.Value.RowId;
+                int number = item.Quantity;
+                var recipe = LuminaSheets.RecipeSheet[item.ID];
+                var ItemId = recipe.ItemResult.Value.RowId;
 
-                exportItems += $"{itemID},null,{number};";
+                exportItems += $"{ItemId},null,{number};";
             }
 
             exportItems = exportItems.TrimEnd(';');
@@ -81,38 +78,33 @@ namespace Artisan.CraftingLists
             var plainTextBytes = Encoding.UTF8.GetBytes(exportItems);
             string base64 = Convert.ToBase64String(plainTextBytes);
 
-            ImGui.SetClipboardText($"{baseUrl}{base64}");
-            Notify.Success("链接已复制到剪贴板。");
+            Svc.Log.Debug($"{baseUrl}{base64}");
+            Clipboard.SetText($"{baseUrl}{base64}");
+            Notify.Success("链接已复制到剪贴板");
         }
 
-        private static void ExtractRecipes(List<uint> sublist, Recipe recipe)
+        private static void ExtractRecipes(List<ListItem> sublist, Recipe recipe)
         {
             foreach (var ing in recipe.UnkData5.Where(x => x.AmountIngredient > 0))
             {
-                var subRec = CraftingListUI.GetIngredientRecipe(ing.ItemIngredient);
+                var subRec = CraftingListHelpers.GetIngredientRecipe((uint)ing.ItemIngredient);
                 if (subRec != null)
                 {
-                    if (sublist.Contains(subRec.RowId))
+                    if (sublist.Any(x => x.ID == subRec.RowId))
                     {
                         foreach (var subIng in subRec.UnkData5.Where(x => x.AmountIngredient > 0))
                         {
-                            var subSubRec = CraftingListUI.GetIngredientRecipe(subIng.ItemIngredient);
+                            var subSubRec = CraftingListHelpers.GetIngredientRecipe((uint)subIng.ItemIngredient);
                             if (subSubRec != null)
                             {
-                                if (sublist.Contains(subSubRec.RowId))
+                                if (sublist.Any(x => x.ID == subSubRec.RowId))
                                 {
-                                    for (int y = 1; y <= subIng.AmountIngredient; y++)
-                                    {
-                                        sublist.Remove(subSubRec.RowId);
-                                    }
+                                    sublist.RemoveAll(x => x.ID == subSubRec.RowId);
                                 }
                             }
                         }
 
-                        for (int y = 1; y <= ing.AmountIngredient; y++)
-                        {
-                            sublist.Remove(subRec.RowId);
-                        }
+                        sublist.RemoveAll(x => x.ID == subRec.RowId);
                     }
                 }
             }
@@ -124,30 +116,39 @@ namespace Artisan.CraftingLists
 
 
             ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.2f, 0.1f, 0.2f, 1f));
-            if (ImGui.Begin("Teamcraft导入###TCImport", ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize))
+            ImGui.SetNextWindowSize(new Vector2(1, 1), ImGuiCond.Appearing);
+            if (ImGui.Begin("Teamcraft 导入###TCImport", ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.AlwaysAutoResize))
             {
                 ImGui.Text("清单名称");
                 ImGui.SameLine();
                 ImGuiComponents.HelpMarker("导入清单指南\r\n\r\n" +
-                    "步骤1：在Teamcraft上打开您想要制作的物品清单。\r\n\r\n" +
-                    "步骤2：找到半成品选项并单击“复制为文本”按钮。\r\n\r\n" +
-                    "步骤3：粘贴到此窗口中的半成品框中。\r\n\r\n" +
-                    "步骤4：针对最终成品部分重复步骤2和步骤3。\r\n\r\n" +
-                    "步骤5：为您的清单命名并单击导入。");
+                    "步骤 1. 在 Teamcraft 上打开一个包含你想制作的物品的清单。\r\n\r\n" +
+                    "步骤 2. 找到半成品部分并点击 \"复制为文本\" 按钮。\r\n\r\n" +
+                    "步骤 3. 在此窗口中的半成品框中粘贴。\r\n\r\n" +
+                    "步骤 4. 针对最终成品部分重复步骤 2 和 3。\r\n\r\n" +
+                    "步骤 5. 为你的清单命名并点击导入。");
                 ImGui.InputText("###ImportListName", ref importListName, 50);
                 ImGui.Text("半成品");
                 ImGui.InputTextMultiline("###PrecraftItems", ref importListPreCraft, 5000000, new Vector2(ImGui.GetContentRegionAvail().X, 100));
-                ImGui.Text("成品");
-                ImGui.InputTextMultiline("###FinalItems", ref importListItems, 5000000, new Vector2(ImGui.GetContentRegionAvail().X, 100));
 
+                if (!P.Config.DefaultListQuickSynth)
+                    ImGui.Checkbox("作为简易制作导入###ImportQSPre", ref precraftQS);
+                else
+                    ImGui.TextWrapped($@"如果勾选该设置，物品将会被作为简易制作导入清单。");
+                ImGui.Text("最终成品");
+                ImGui.InputTextMultiline("###FinalItems", ref importListItems, 5000000, new Vector2(ImGui.GetContentRegionAvail().X, 100));
+                if (!P.Config.DefaultListQuickSynth)
+                    ImGui.Checkbox("作为简易制作导入###ImportQSFinal", ref finalitemQS);
+                else
+                    ImGui.TextWrapped($@"如果勾选该设置，物品将会被作为简易制作导入清单。");
 
                 if (ImGui.Button("导入"))
                 {
-                    CraftingList? importedList = ParseImport();
+                    NewCraftingList? importedList = ParseImport(precraftQS, finalitemQS);
                     if (importedList is not null)
                     {
                         if (importedList.Name.IsNullOrEmpty())
-                            importedList.Name = importedList.Items.FirstOrDefault().NameOfRecipe();
+                            importedList.Name = importedList.Recipes.FirstOrDefault().ID.NameOfRecipe();
                         importedList.SetID();
                         importedList.Save();
                         openImportWindow = false;
@@ -158,7 +159,7 @@ namespace Artisan.CraftingLists
                     }
                     else
                     {
-                        Notify.Error("导入时出了点问题。请检查您是否已正确填写所有内容。");
+                        Notify.Error("导入的清单中没有物品，请检查你的导入设置并重试。");
                     }
 
                 }
@@ -175,10 +176,10 @@ namespace Artisan.CraftingLists
             ImGui.PopStyleColor();
         }
 
-        private static CraftingList? ParseImport()
+        private static NewCraftingList? ParseImport(bool precraftQS, bool finalitemQS)
         {
             if (string.IsNullOrEmpty(importListName) && string.IsNullOrEmpty(importListItems) && string.IsNullOrEmpty(importListPreCraft)) return null;
-            CraftingList output = new CraftingList();
+            NewCraftingList output = new NewCraftingList();
             output.Name = importListName;
             using (System.IO.StringReader reader = new System.IO.StringReader(importListPreCraft))
             {
@@ -199,15 +200,16 @@ namespace Artisan.CraftingLists
                             builder.Append(" ");
                         }
                         var item = builder.ToString().Trim();
-                        Dalamud.Logging.PluginLog.Debug($"{numberOfItem} x {item}");
+                        Svc.Log.Debug($"{numberOfItem} x {item}");
 
-                        var recipe = LuminaSheets.RecipeSheet?.Where(x => x.Value.ItemResult.Value.Name.RawString == item).Select(x => x.Value).FirstOrDefault();
+                        var recipe = LuminaSheets.RecipeSheet?.Where(x => x.Value.ItemResult.Row > 0 && x.Value.ItemResult.Value.Name.RawString == item).Select(x => x.Value).FirstOrDefault();
                         if (recipe is not null)
                         {
-                            for (int i = 1; i <= Math.Ceiling((double)numberOfItem / (double)recipe.AmountResult); i++)
-                            {
-                                output.Items.Add(recipe.RowId);
-                            }
+                            int quantity = (int)Math.Ceiling(numberOfItem / (double)recipe.AmountResult);
+                            output.Recipes.Add(new ListItem() { ID = recipe.RowId, Quantity = quantity, ListItemOptions = new() });
+
+                            if (precraftQS && recipe.CanQuickSynth)
+                                output.Recipes.First(x => x.ID == recipe.RowId).ListItemOptions.NQOnly = true;
                         }
                     }
 
@@ -232,22 +234,23 @@ namespace Artisan.CraftingLists
                             builder.Append(" ");
                         }
                         var item = builder.ToString().Trim();
-                        if (AutocraftDebugTab.Debug) Dalamud.Logging.PluginLog.Debug($"{numberOfItem} x {item}");
+                        if (DebugTab.Debug) Svc.Log.Debug($"{numberOfItem} x {item}");
 
-                        var recipe = LuminaSheets.RecipeSheet?.Where(x => x.Value.ItemResult.Value.Name.RawString == item).Select(x => x.Value).FirstOrDefault();
+                        var recipe = LuminaSheets.RecipeSheet?.Where(x => x.Value.ItemResult.Row > 0 && x.Value.ItemResult.Value.Name.RawString == item).Select(x => x.Value).FirstOrDefault();
                         if (recipe is not null)
                         {
-                            for (int i = 1; i <= Math.Ceiling((double)numberOfItem / (double)recipe.AmountResult); i++)
-                            {
-                                output.Items.Add(recipe.RowId);
-                            }
+                            int quantity = (int)Math.Ceiling(numberOfItem / (double)recipe.AmountResult);
+                            output.Recipes.Add(new ListItem() { ID = recipe.RowId, Quantity = quantity, ListItemOptions = new() });
+
+                            if (finalitemQS && recipe.CanQuickSynth)
+                                output.Recipes.First(x => x.ID == recipe.RowId).ListItemOptions.NQOnly = true;
                         }
                     }
 
                 }
             }
 
-            if (output.Items.Count == 0) return null;
+            if (output.Recipes.Count == 0) return null;
 
             return output;
         }

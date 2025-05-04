@@ -1,8 +1,8 @@
 ﻿using Artisan.Autocraft;
 using Artisan.CraftingLists;
+using Artisan.GameInterop;
 using Artisan.QuestSync;
 using Artisan.RawInformation;
-using Dalamud.Game.Gui;
 using Dalamud.Interface.Windowing;
 using ECommons;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -13,7 +13,7 @@ namespace Artisan.UI
 {
     internal class QuestHelper : Window
     {
-        public QuestHelper() : base("任务辅助###QuestHelper", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar)
+        public QuestHelper() : base("任务助手###QuestHelper", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar)
         {
             IsOpen = true;
             ShowCloseButton = false;
@@ -21,7 +21,7 @@ namespace Artisan.UI
         }
         public override bool DrawConditions()
         {
-            if (Service.Configuration.HideQuestHelper || (!QuestList.HasIngredientsForAny() && !QuestList.IsOnSayQuest() && !QuestList.IsOnEmoteQuest()))
+            if (P.Config.HideQuestHelper || (!QuestList.HasIngredientsForAny() && !QuestList.IsOnSayQuest() && !QuestList.IsOnEmoteQuest()))
                 return false;
 
             return true;
@@ -29,10 +29,9 @@ namespace Artisan.UI
 
         public override void PreDraw()
         {
-            if (!P.config.DisableTheme)
+            if (!P.Config.DisableTheme)
             {
                 P.Style.Push();
-                ImGui.PushFont(P.CustomFont);
                 P.StylePushed = true;
             }
         }
@@ -42,7 +41,6 @@ namespace Artisan.UI
             if (P.StylePushed)
             {
                 P.Style.Pop();
-                ImGui.PopFont();
                 P.StylePushed = false;
             }
         }
@@ -52,7 +50,7 @@ namespace Artisan.UI
             bool hasIngredientsAny = QuestList.HasIngredientsForAny();
             if (hasIngredientsAny)
             {
-                ImGui.Text($"任务辅助（单击打开配方）");
+                ImGui.Text($"任务助手 (点击打开配方)");
                 foreach (var quest in QuestList.Quests)
                 {
                     if (QuestList.IsOnQuest((ushort)quest.Key))
@@ -62,14 +60,11 @@ namespace Artisan.UI
                         {
                             if (ImGui.Button($"{((ushort)quest.Key).NameOfQuest()}"))
                             {
-                                if (CraftingListFunctions.RecipeWindowOpen())
+
+                                if (Crafting.CurState is Crafting.State.IdleNormal or Crafting.State.IdleBetween)
                                 {
-                                    CraftingListFunctions.CloseCraftingMenu();
-                                    Service.Framework.RunOnTick(() => CraftingListFunctions.OpenRecipeByID(QuestList.GetRecipeForQuest((ushort)quest.Key), true), TimeSpan.FromSeconds(0.5));
-                                }
-                                else
-                                {
-                                    CraftingListFunctions.OpenRecipeByID(QuestList.GetRecipeForQuest((ushort)quest.Key));
+                                    var recipe = LuminaSheets.RecipeSheet[QuestList.GetRecipeForQuest((ushort)quest.Key)];
+                                    PreCrafting.Tasks.Add((() => PreCrafting.TaskSelectRecipe(recipe), TimeSpan.FromSeconds(5)));
                                 }
                             }
                         }
@@ -81,13 +76,13 @@ namespace Artisan.UI
             bool isOnSayQuest = QuestList.IsOnSayQuest();
             if (isOnSayQuest)
             {
-                ImGui.Text($"任务辅助（单击发送/s ）");
-                foreach (var quest in QuestManager.Instance()->DailyQuestsSpan)
+                ImGui.Text($"任务助手 (点击发送说话)");
+                foreach (var quest in QuestManager.Instance()->DailyQuests)
                 {
                     string message = QuestList.GetSayQuestString(quest.QuestId);
                     if (message != "")
                     {
-                        if (ImGui.Button($@"Say ""{message}"""))
+                        if (ImGui.Button($@"说 ""{message}"""))
                         {
                             CommandProcessor.ExecuteThrottled($"/say {message}");
                         }
@@ -97,14 +92,14 @@ namespace Artisan.UI
             bool isOnEmoteQuest = QuestList.IsOnEmoteQuest();
             if (isOnEmoteQuest)
             {
-                ImGui.Text("任务辅助（单击选择并发送情感动作）");
-                foreach (var quest in QuestManager.Instance()->DailyQuestsSpan)
+                ImGui.Text("任务助手 (点击目标并做情感动作)");
+                foreach (var quest in QuestManager.Instance()->DailyQuests)
                 {
                     if (quest.IsCompleted) continue;
 
                     if (QuestList.EmoteQuests.TryGetValue(quest.QuestId, out var data))
                     {
-                        if (ImGui.Button($@"选中 {LuminaSheets.ENPCResidentSheet[data.NPCDataId].Singular.ExtractText()} 并做 {data.Emote}"))
+                        if (ImGui.Button($@"目标 {LuminaSheets.ENPCResidentSheet[data.NPCDataId].Singular.ExtractText()} 并做 {data.Emote}"))
                         {
                             QuestList.DoEmoteQuest(quest.QuestId);
                         }
@@ -115,7 +110,7 @@ namespace Artisan.UI
                         {
                             if (QuestList.EmoteQuests.TryGetValue(9998, out var npc1))
                             {
-                                if (ImGui.Button($@"选中 {LuminaSheets.ENPCResidentSheet[npc1.NPCDataId].Singular.ExtractText()} 并做 {npc1.Emote}"))
+                                if (ImGui.Button($@"目标 {LuminaSheets.ENPCResidentSheet[npc1.NPCDataId].Singular.ExtractText()} 并做 {npc1.Emote}"))
                                 {
                                     QuestList.DoEmoteQuest(9998);
                                 }
@@ -123,7 +118,7 @@ namespace Artisan.UI
 
                             if (QuestList.EmoteQuests.TryGetValue(9999, out var npc2))
                             {
-                                if (ImGui.Button($@"选中 {LuminaSheets.ENPCResidentSheet[npc2.NPCDataId].Singular.ExtractText()} 并做 {npc2.Emote}"))
+                                if (ImGui.Button($@"目标 {LuminaSheets.ENPCResidentSheet[npc2.NPCDataId].Singular.ExtractText()} 并做 {npc2.Emote}"))
                                 {
                                     QuestList.DoEmoteQuest(9999);
                                 }

@@ -1,13 +1,11 @@
-﻿using Artisan.Autocraft;
-using ClickLib.Clicks;
+﻿using Artisan.GameInterop;
+using Artisan.RawInformation.Character;
+using ECommons.DalamudServices;
+using ECommons.GameHelpers;
+using ECommons.UIHelpers.AddonMasterImplementations;
 using FFXIVClientStructs.FFXIV.Client.Game;
-using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using static ECommons.GenericHelpers;
 
 namespace Artisan.RawInformation
@@ -56,28 +54,22 @@ namespace Artisan.RawInformation
             return false;
         }
 
-        public static bool IsMateriaMenuOpen() => Service.GameGui.GetAddonByName("Materialize", 1) != IntPtr.Zero;
+        public static bool IsMateriaMenuOpen() => Svc.GameGui.GetAddonByName("Materialize", 1) != IntPtr.Zero;
 
-        public static bool IsMateriaMenuDialogOpen() => Service.GameGui.GetAddonByName("MaterializeDialog", 1) != IntPtr.Zero;
+        public static bool IsMateriaMenuDialogOpen() => Svc.GameGui.GetAddonByName("MaterializeDialog", 1) != IntPtr.Zero;
         public unsafe static void OpenMateriaMenu()
         {
-            if (Service.GameGui.GetAddonByName("Materialize", 1) == IntPtr.Zero)
+            if (Svc.GameGui.GetAddonByName("Materialize", 1) == IntPtr.Zero)
             {
-                if (Throttler.Throttle(1000))
-                {
-                    ActionManager.Instance()->UseAction(ActionType.General, 14);
-                }
+                ActionManagerEx.UseMateriaExtraction();
             }
         }
 
         public unsafe static void CloseMateriaMenu()
         {
-            if (Service.GameGui.GetAddonByName("Materialize", 1) != IntPtr.Zero)
+            if (Svc.GameGui.GetAddonByName("Materialize", 1) != IntPtr.Zero)
             {
-                if (Throttler.Throttle(1000))
-                {
-                    ActionManager.Instance()->UseAction(ActionType.General, 14);
-                }
+                ActionManagerEx.UseMateriaExtraction();
             }
         }
 
@@ -85,23 +77,62 @@ namespace Artisan.RawInformation
         {
             try
             {
-                if (Throttler.Throttle(500))
-                {
-                    var materializePTR = Service.GameGui.GetAddonByName("MaterializeDialog", 1);
-                    if (materializePTR == IntPtr.Zero)
-                        return;
+                var materializePTR = Svc.GameGui.GetAddonByName("MaterializeDialog", 1);
+                if (materializePTR == IntPtr.Zero)
+                    return;
 
-                    var materalizeWindow = (AtkUnitBase*)materializePTR;
-                    if (materalizeWindow == null)
-                        return;
+                var materalizeWindow = (AtkUnitBase*)materializePTR;
+                if (materalizeWindow == null)
+                    return;
 
-                    ClickMaterializeDialog.Using(materializePTR).Materialize();
-                }
+                new AddonMaster.MaterializeDialog(materializePTR).Materialize();
             }
             catch
             {
 
             }
+        }
+
+        private static DateTime _nextRetry;
+
+        public unsafe static bool ExtractMateriaTask(bool option)
+        {
+            if (!CharacterInfo.MateriaExtractionUnlocked()) return true;
+            if (CharacterOther.GetInventoryFreeSlotCount() == 0) return true;
+
+            if (option)
+            {
+                if (IsMateriaMenuOpen() && !IsSpiritbondReadyAny())
+                {
+                    if (DateTime.Now < _nextRetry) return false;
+                    CloseMateriaMenu();
+                    _nextRetry = DateTime.Now.Add(TimeSpan.FromMilliseconds(500));
+                    return false;
+                }
+
+                if (IsSpiritbondReadyAny())
+                {
+                    if (DateTime.Now < _nextRetry) return false;
+                    if (!IsMateriaMenuOpen())
+                    {
+                        OpenMateriaMenu();
+                        _nextRetry = DateTime.Now.Add(TimeSpan.FromMilliseconds(500));
+                        return false;
+                    }
+
+                    if (IsMateriaMenuOpen() && !PreCrafting.Occupied())
+                    {
+                        ExtractFirstMateria();
+                        _nextRetry = DateTime.Now.Add(TimeSpan.FromMilliseconds(500));
+                        return false;
+                    }
+
+                    _nextRetry = DateTime.Now.Add(TimeSpan.FromMilliseconds(500));
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public unsafe static void ExtractFirstMateria()
@@ -116,34 +147,32 @@ namespace Artisan.RawInformation
                     }
                     else
                     {
-                        if (Throttler.Throttle(500))
+                        var materializePTR = Svc.GameGui.GetAddonByName("Materialize", 1);
+                        if (materializePTR == IntPtr.Zero)
+                            return;
+
+                        var materalizeWindow = (AtkUnitBase*)materializePTR;
+                        if (materalizeWindow == null)
+                            return;
+
+                        var list = (AtkComponentList*)materalizeWindow->UldManager.NodeList[5];
+
+                        var values = stackalloc AtkValue[2];
+                        values[0] = new()
                         {
-                            var materializePTR = Service.GameGui.GetAddonByName("Materialize", 1);
-                            if (materializePTR == IntPtr.Zero)
-                                return;
+                            Type = FFXIVClientStructs.FFXIV.Component.GUI.ValueType.Int,
+                            Int = 2,
+                        };
+                        values[1] = new()
+                        {
+                            Type = FFXIVClientStructs.FFXIV.Component.GUI.ValueType.UInt,
+                            UInt = 0,
+                        };
 
-                            var materalizeWindow = (AtkUnitBase*)materializePTR;
-                            if (materalizeWindow == null)
-                                return;
-
-                            var list = (AtkComponentList*)materalizeWindow->UldManager.NodeList[5];
-
-                            var values = stackalloc AtkValue[2];
-                            values[0] = new()
-                            {
-                                Type = FFXIVClientStructs.FFXIV.Component.GUI.ValueType.Int,
-                                Int = 2,
-                            };
-                            values[1] = new()
-                            {
-                                Type = FFXIVClientStructs.FFXIV.Component.GUI.ValueType.UInt,
-                                UInt = 0,
-                            };
-
-                            materalizeWindow->FireCallback(1, values);
+                        materalizeWindow->FireCallback(1, values);
 
 
-                        }
+
                     }
                 }
 

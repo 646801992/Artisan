@@ -1,21 +1,15 @@
 ﻿using Artisan.RawInformation;
-using Dalamud.Game.ClientState.Conditions;
-using Dalamud.Utility.Signatures;
-using ECommons;
 using ECommons.DalamudServices;
-using ECommons.Schedulers;
-using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.GeneratedSheets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Artisan.CraftingLists;
 using ECommons.Logging;
+using Artisan.GameInterop;
+using FFXIVClientStructs.FFXIV.Client.Game;
+using Artisan.CraftingLogic;
 
 namespace Artisan.Autocraft
 {
@@ -28,25 +22,22 @@ namespace Artisan.Autocraft
         internal static (uint Id, string Name)[] SquadronManuals;
         static Dictionary<uint, string> Usables;
         static AgentInterface* itemContextMenuAgent;
-        //[Signature("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 41 B0 01 BA 13 00 00 00", Fallibility = Fallibility.Infallible)]
-        //static delegate* unmanaged<AgentInterface*, uint, uint, uint, short, void> useItem;
 
         internal static void Init()
         {
-            SignatureHelper.Initialise(new ConsumableChecker());
             itemContextMenuAgent = Framework.Instance()->UIModule->GetAgentModule()->GetAgentByInternalId(AgentId.InventoryContext);
-            Usables = Service.DataManager.GetExcelSheet<Item>().Where(i => i.ItemAction.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower())
-            .Concat(Service.DataManager.GetExcelSheet<EventItem>().Where(i => i.Action.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower()))
+            Usables = Svc.Data.GetExcelSheet<Item>().Where(i => i.ItemAction.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower())
+            .Concat(Svc.Data.GetExcelSheet<EventItem>().Where(i => i.Action.Row > 0).ToDictionary(i => i.RowId, i => i.Name.ToString().ToLower()))
             .ToDictionary(kv => kv.Key, kv => kv.Value);
-            Food = Service.DataManager.GetExcelSheet<Item>().Where(x => (x.ItemUICategory.Value.RowId == 46 && IsCraftersAttribute(x)) || x.RowId == 10146).Select(x => (x.RowId, x.Name.ToString())).ToArray();
-            Pots = Service.DataManager.GetExcelSheet<Item>().Where(x => !x.RowId.EqualsAny<uint>(4570) && x.ItemUICategory.Value.RowId == 44 && (IsCraftersAttribute(x) || IsSpiritBondAttribute(x))).Select(x => (x.RowId, x.Name.ToString())).ToArray();
-            Manuals = Service.DataManager.GetExcelSheet<Item>().Where(x => !x.RowId.EqualsAny<uint>(4570) && x.ItemUICategory.Value.RowId == 63 && IsManualAttribute(x)).Select(x => (x.RowId, x.Name.ToString())).ToArray();
-            SquadronManuals = Service.DataManager.GetExcelSheet<Item>().Where(x => !x.RowId.EqualsAny<uint>(4570) && x.ItemUICategory.Value.RowId == 63 && IsSquadronManualAttribute(x)).Select(x => (x.RowId, x.Name.ToString())).ToArray();
+            Food = Svc.Data.GetExcelSheet<Item>().Where(IsCraftersFood).Select(x => (x.RowId, x.Name.ToString())).ToArray();
+            Pots = Svc.Data.GetExcelSheet<Item>().Where(IsCraftersPot).Select(x => (x.RowId, x.Name.ToString())).ToArray();
+            Manuals = Svc.Data.GetExcelSheet<Item>().Where(IsManual).Select(x => (x.RowId, x.Name.ToString())).ToArray();
+            SquadronManuals = Svc.Data.GetExcelSheet<Item>().Where(IsSquadronManual).Select(x => (x.RowId, x.Name.ToString())).ToArray();
         }
 
         internal static (uint Id, string Name)[] GetFood(bool inventoryOnly = false, bool hq = false)
         {
-            if (inventoryOnly) return Food.Where(x => InventoryManager.Instance()->GetInventoryItemCount(x.Id, hq) > 0).ToArray();
+            if (inventoryOnly) return Food.Where(x => InventoryManager.Instance()->GetInventoryItemCount(x.Id, hq) > 0f).ToArray();
             return Food;
         }
 
@@ -68,112 +59,91 @@ namespace Artisan.Autocraft
             return SquadronManuals;
         }
 
-        internal static bool IsManualAttribute(Item x)
+        internal static ItemFood? GetItemConsumableProperties(Item item, bool hq)
         {
-            try
-            {
-                ushort[] engineeringManuals = { 301, 1751, 5329 };
-                if (x.ItemAction.Value.Type.Equals(816) && x.ItemAction.Value.Data[0].EqualsAny(engineeringManuals))
-                {
-                    return true;
-                }
-            }
-            catch { }
-            return false;
+            var action = item.ItemAction.Value;
+            if (action == null)
+                return null;
+            var actionParams = hq ? action.DataHQ : action.Data; // [0] = status, [1] = extra == ItemFood row, [2] = duration
+            if (actionParams[0] is not 48 and not 49)
+                return null; // not 'well fed' or 'medicated'
+            return Svc.Data.GetExcelSheet<ItemFood>()?.GetRow(actionParams[1]);
         }
 
-        internal static bool IsSquadronManualAttribute(Item x)
+        internal static bool IsCraftersFood(Item item)
         {
-            try
-            {
-                ushort[] squadrantManuals = { 2291, 2292, 2293, 2294 };
-                if (x.ItemAction.Value.Type.Equals(816) && x.ItemAction.Value.Data[0].EqualsAny(squadrantManuals))
-                {
-                   return true;
-                }
-            }
-            catch { }
-            return false;
+            if (item.ItemUICategory.Row != 46)
+                return false; // not a 'meal'
+            var consumable = GetItemConsumableProperties(item, false);
+            return consumable != null && consumable.UnkData1.Any(p => p.BaseParam is 11 or 70 or 71); // cp/craftsmanship/control
         }
 
-        internal static bool IsSpiritBondAttribute(Item x)
+        internal static bool IsCraftersPot(Item item)
         {
-            try
-            {
-                foreach (var z in x.ItemAction.Value?.Data)
-                {
-                    if (Service.DataManager.GetExcelSheet<ItemFood>().GetRow(z).UnkData1[0].BaseParam.EqualsAny<byte>(69))
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch { }
-            return false;
+            if (item.ItemUICategory.Row != 44)
+                return false; // not a 'medicine'
+            var consumable = GetItemConsumableProperties(item, false);
+            return consumable != null && consumable.UnkData1.Any(p => p.BaseParam is 11 or 70 or 71 or 69 or 68); // cp/craftsmanship/control/increased spiritbond/reduced durability loss
         }
 
-        internal static bool IsCraftersAttribute(Item x)
+        internal static bool IsManual(Item item)
         {
-            try
-            {
-                foreach (var z in x.ItemAction.Value?.Data)
-                {
-                    if (Service.DataManager.GetExcelSheet<ItemFood>().GetRow(z).UnkData1[0].BaseParam.EqualsAny<byte>(11, 70, 71))
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch { }
-            return false;
+            if (item.ItemUICategory.Row != 63)
+                return false; // not 'other'
+            var action = item.ItemAction.Value;
+            return action != null && action.Type == 816 && action.Data[0] is 300 or 301 or 1751 or 5329;
+        }
+
+        internal static bool IsSquadronManual(Item item)
+        {
+            if (item.ItemUICategory.Row != 63)
+                return false; // not 'other'
+            var action = item.ItemAction.Value;
+            return action != null && action.Type == 816 && action.Data[0] is 2291 or 2292 or 2293 or 2294;
         }
 
 
-        internal static bool IsFooded(ListItemOptions? listItemOptions = null)
+        internal static bool IsFooded(RecipeConfig? config)
         {
-            if (Service.ClientState.LocalPlayer.StatusList.Any(x => x.StatusId == 48 & x.RemainingTime > 0f))
-            {
-                var configFood = listItemOptions != null ? listItemOptions.Food : Service.Configuration.Food;
-                var configFoodHQ = listItemOptions != null ? listItemOptions.FoodHQ : Service.Configuration.FoodHQ;
-
-                var foodBuff = Service.ClientState.LocalPlayer.StatusList.First(x => x.StatusId == 48);
-                var desiredFood = LuminaSheets.ItemSheet[configFood].ItemAction.Value;
-                var itemFood = LuminaSheets.ItemFoodSheet[configFoodHQ ? desiredFood.DataHQ[1] : desiredFood.Data[1]];
-                if (foodBuff.Param != (itemFood.RowId + (configFoodHQ ? 10000 : 0)))
-                {
-                    return false;
-                }
-                return true;
-            }
+            if (config == null || config.RequiredFood == 0)
+                return true; // don't need a food
+            var foodBuff = Svc.ClientState.LocalPlayer.StatusList.FirstOrDefault(x => x.StatusId == 48 & x.RemainingTime > 10f);
+            if (foodBuff == null)
+                return false; // don't have any well-fed buff
+            var desiredFood = LuminaSheets.ItemSheet[config.RequiredFood].ItemAction.Value;
+            if (foodBuff.Param == desiredFood.DataHQ[1] + 10000)
+                return true; // we have HQ food, assume it's ok even if recipe requires NQ
+            if (foodBuff.Param == desiredFood.Data[1] && !config.RequiredFoodHQ)
+                return true; // we have NQ food and don't require HQ
             return false;
         }
 
-        internal static bool IsPotted(ListItemOptions? listItemOptions = null)
+        internal static bool IsPotted(RecipeConfig? config)
         {
-            if (Service.ClientState.LocalPlayer.StatusList.Any(x => x.StatusId == 49))
-            {
-                var configPot = listItemOptions != null ? listItemOptions.Potion : Service.Configuration.Potion ;
-                var configPotHQ = listItemOptions != null ? listItemOptions.PotHQ : Service.Configuration.PotHQ;
-
-                var potBuff = Service.ClientState.LocalPlayer.StatusList.First(x => x.StatusId == 49);
-                var desiredPot = LuminaSheets.ItemSheet[configPot].ItemAction.Value;
-                var itemFood = LuminaSheets.ItemFoodSheet[configPotHQ ? desiredPot.DataHQ[1] : desiredPot.Data[1]];
-                if (potBuff.Param != (itemFood.RowId + (configPotHQ ? 10000 : 0)))
-                {
-                    return false;
-                }
-                return true;
-            }
+            if (config == null || config.RequiredPotion == 0)
+                return true; // don't need a pot
+            var potBuff = Svc.ClientState.LocalPlayer.StatusList.FirstOrDefault(x => x.StatusId == 49 & x.RemainingTime > 10f);
+            if (potBuff == null)
+                return false; // don't have any well-fed buff
+            var desiredPot = LuminaSheets.ItemSheet[config.RequiredPotion].ItemAction.Value;
+            if (potBuff.Param == desiredPot.DataHQ[1] + 10000)
+                return true; // we have HQ pot, assume it's ok even if recipe requires NQ
+            if (potBuff.Param == desiredPot.Data[1] && !config.RequiredPotionHQ)
+                return true; // we have NQ pot and don't require HQ
             return false;
         }
 
-        internal static bool IsManualled()
+        internal static bool IsManualled(RecipeConfig? config)
         {
+            if (config == null || config.RequiredManual == 0)
+                return true; // don't need a manual
             return Svc.ClientState.LocalPlayer?.StatusList.Any(x => x.StatusId == 45) == true;
         }
 
-        internal static bool IsSquadronManualled()
+        internal static bool IsSquadronManualled(RecipeConfig? config)
         {
+            if (config == null || config.RequiredSquadronManual == 0)
+                return true; // don't need a squadron manual
             // Squadron engineering/spiritbonding/rationing/gear manual.
             uint[] SquadronManualBuffss = { 1082, 1083, 1084, 1085 };
             return Svc.ClientState.LocalPlayer?.StatusList.Any(x => SquadronManualBuffss.Contains(x.StatusId)) == true;
@@ -195,107 +165,95 @@ namespace Artisan.Autocraft
             return false;
         }
 
-        //internal static bool UseItemInternal(uint id, bool hq = false)
-        //{
-        //    if (id == 0) return false;
-        //    if (hq) id += 1_000_000;
-        //    if (!Usables.ContainsKey(id is >= 1_000_000 and < 2_000_000 ? id - 1_000_000 : id)) return false;
-        //    useItem(itemContextMenuAgent, id, 9999, 0, 0);
-        //    return true;
-        //}
+        internal static unsafe bool UseItem2(uint ItemId) => ActionManagerEx.UseItem(ItemId);
 
-        internal static unsafe bool UseItem2(uint itemID) =>
-            ActionManager.Instance() is not null && ActionManager.Instance()->UseAction(ActionType.Item, itemID, a4: 65535);
-
-        internal static unsafe uint GetItemStatus(uint itemID) => ActionManager.Instance() is null ? uint.MaxValue : ActionManager.Instance()->GetActionStatus(ActionType.Item, itemID);
-        internal static bool CheckConsumables(bool use = true, ListItemOptions? listItemOptions = null)
+        internal static bool CheckConsumables(RecipeConfig config, bool use = true)
         {
-            uint desiredFood = listItemOptions != null ? listItemOptions.Food : Service.Configuration.Food;
-            bool desiredFoodHQ = listItemOptions != null ? listItemOptions.FoodHQ : Service.Configuration.FoodHQ;
-            uint desiredPot = listItemOptions != null ? listItemOptions.Potion : Service.Configuration.Potion;
-            bool desiredPotHQ = listItemOptions != null ? listItemOptions.PotHQ : Service.Configuration.PotHQ;
+            if (Endurance.SkipBuffs) return false;
 
-
-            var fooded = IsFooded(listItemOptions) || desiredFood == 0;
+            var fooded = IsFooded(config) || (config.RequiredFood == 0 && Endurance.Enable);
             if (!fooded)
             {
-                if (GetFood(true, desiredFoodHQ).Any(x => x.Id == desiredFood))
+                if (GetFood(true, config.RequiredFoodHQ).Any(x => x.Id == config.RequiredFood))
                 {
-                    if (use) UseItem(desiredFood, desiredFoodHQ);
+                    if (use) UseItem(config.RequiredFood, config.RequiredFoodHQ);
                     return false;
                 }
                 else
                 {
-                    if (Handler.Enable)
+                    if (Endurance.Enable)
                     {
-                        DuoLog.Error("没有找到食物，禁用持续模式。");
-                        Handler.Enable = false;
+                        Svc.Toasts.ShowError("未找到食物，正在禁用续航模式。");
+                        DuoLog.Error("未找到食物，正在禁用续航模式。");
+                        Endurance.Enable = false;
                     }
-                    fooded = !Service.Configuration.AbortIfNoFoodPot;
+                    fooded = !P.Config.AbortIfNoFoodPot;
                 }
             }
-            var potted = IsPotted(listItemOptions) || Service.Configuration.Potion == 0;
+            var potted = IsPotted(config) || (config.RequiredPotion == 0 && Endurance.Enable);
             if (!potted)
             {
-                if (GetPots(true, desiredPotHQ).Any(x => x.Id == desiredPot))
+                if (GetPots(true, config.RequiredPotionHQ).Any(x => x.Id == config.RequiredPotion))
                 {
-                    if (use) UseItem(desiredPot, desiredPotHQ);
+                    if (use) UseItem(config.RequiredPotion, config.RequiredPotionHQ);
                     return false;
                 }
                 else
                 {
-                    if (Handler.Enable)
+                    if (Endurance.Enable)
                     {
-                        DuoLog.Error("没有找到药水，禁用持续模式。");
-                        Handler.Enable = false;
+                        Svc.Toasts.ShowError("未找到药水，正在禁用续航模式。");
+                        DuoLog.Error("未找到药水，正在禁用续航模式。");
+                        Endurance.Enable = false;
                     }
-                    potted = !Service.Configuration.AbortIfNoFoodPot;
+                    potted = !P.Config.AbortIfNoFoodPot;
                 }
             }
-            if (listItemOptions == null)
+            var manualed = IsManualled(config) || (config.RequiredManual == 0 && Endurance.Enable);
+            if (!manualed)
             {
-                var manualed = IsManualled() || Service.Configuration.Manual == 0;
-                if (!manualed)
+                if (GetManuals(true).Any(x => x.Id == config.RequiredManual))
                 {
-                    if (GetManuals(true).Any(x => x.Id == Service.Configuration.Manual))
-                    {
-                        if (use) UseItem(Service.Configuration.Manual);
-                        return false;
-                    }
-                    else
-                    {
-                        if (Handler.Enable)
-                        {
-                            DuoLog.Error("没有找到工程学指南，禁用持续模式。");
-                            Handler.Enable = false;
-                        }
-                        manualed = !Service.Configuration.AbortIfNoFoodPot;
-                    }
+                    if (use) UseItem(config.RequiredManual);
+                    return false;
                 }
-                var squadronManualed = IsSquadronManualled() || Service.Configuration.SquadronManual == 0;
-                if (!squadronManualed)
+                else
                 {
-                    if (GetSquadronManuals(true).Any(x => x.Id == Service.Configuration.SquadronManual))
+                    if (Endurance.Enable)
                     {
-                        if (use) UseItem(Service.Configuration.SquadronManual);
-                        return false;
+                        Svc.Toasts.ShowError("未找到经验指南，正在禁用续航模式。");
+                        DuoLog.Error("未找到经验指南，正在禁用续航模式。");
+                        Endurance.Enable = false;
                     }
-                    else
-                    {
-                        if (Handler.Enable)
-                        {
-                            DuoLog.Error("没有找到军用工程学指南，禁用持续模式。");
-                            Handler.Enable = false;
-                        }
-                        squadronManualed = !Service.Configuration.AbortIfNoFoodPot;
-                    }
+                    manualed = !P.Config.AbortIfNoFoodPot;
                 }
-                var ret = potted && fooded && manualed && squadronManualed;
-                return ret;
             }
-
-            return potted && fooded;
+            var squadronManualed = IsSquadronManualled(config) || (config.RequiredSquadronManual == 0 && Endurance.Enable);
+            if (!squadronManualed)
+            {
+                if (GetSquadronManuals(true).Any(x => x.Id == config.RequiredSquadronManual))
+                {
+                    if (use) UseItem(config.RequiredSquadronManual);
+                    return false;
+                }
+                else
+                {
+                    if (Endurance.Enable)
+                    {
+                        Svc.Toasts.ShowError("未找到军用经验指南，正在禁用续航模式。");
+                        DuoLog.Error("未找到军用经验指南，正在禁用续航模式。");
+                        Endurance.Enable = false;
+                    }
+                    squadronManualed = !P.Config.AbortIfNoFoodPot;
+                }
+            }
+            return potted && fooded && manualed && squadronManualed;
         }
 
+        internal static bool HasItem(uint requiredItem, bool requiredItemHQ)
+        {
+            if (requiredItem == 0) return true;
+            return InventoryManager.Instance()->GetInventoryItemCount(requiredItem, requiredItemHQ) > 0;
+        }
     }
 }

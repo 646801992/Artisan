@@ -1,54 +1,463 @@
 ﻿using Artisan.Autocraft;
+using Artisan.CraftingLists;
+using Artisan.CraftingLogic;
 using Artisan.FCWorkshops;
+using Artisan.GameInterop;
+using Artisan.GameInterop.CSExt;
+using Artisan.IPC;
 using Artisan.RawInformation;
+using Artisan.UI;
 using Dalamud.Interface;
+using Dalamud.Interface.Colors;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using ECommons;
 using ECommons.DalamudServices;
+using ECommons.ExcelServices;
 using ECommons.ImGuiMethods;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
+using Lumina.Excel.GeneratedSheets;
+using OtterGui;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using System.Web;
+using static ECommons.GenericHelpers;
 
 namespace Artisan
 {
     internal class RecipeWindowUI : Window
     {
-        public RecipeWindowUI() : base($"###RecipeWindow", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoNavInputs)
+        private static string search = string.Empty;
+        private static bool searched = false;
+        internal static string Search
+        {
+            get => search;
+            set
+            {
+                if (search != value)
+                {
+                    search = value;
+                    searched = false;
+                }
+            }
+        }
+        public RecipeWindowUI() : base($"###RecipeWindow", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoNavInputs | ImGuiWindowFlags.NoNavFocus | ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoFocusOnAppearing)
         {
             this.Size = new Vector2(0, 0);
             this.Position = new Vector2(0, 0);
             IsOpen = true;
             ShowCloseButton = false;
             RespectCloseHotkey = false;
+            DisableWindowSounds = true;
             this.SizeConstraints = new WindowSizeConstraints()
             {
-                MaximumSize = new Vector2(0,0),
+                MaximumSize = new Vector2(0, 0),
             };
         }
 
         public override void Draw()
         {
-            if (!Service.Configuration.DisableMiniMenu)
-            {
-                if (!Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Crafting] || Service.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.PreparingToCraft])
-                    DrawOptions();
+            if (Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.BetweenAreas]) return;
 
-                DrawEnduranceCounter();
+            if (!Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.Crafting] || Svc.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.PreparingToCraft])
+                DrawOptions();
 
-                DrawWorkshopOverlay();
+            DrawSearchReplace();
 
-            }
+            DrawEnduranceCounter();
+
+            DrawWorkshopOverlay();
+
+            DrawSupplyMissionOverlay();
+
             DrawMacroOptions();
+        }
+
+        private unsafe void DrawSearchReplace()
+        {
+            if (TryGetAddonByName<AddonRecipeNote>("RecipeNote", out var addon))
+            {
+                if (!addon->AtkUnitBase.IsVisible)
+                {
+                    Search = "";
+                    return;
+                }
+                var searchNode = addon->AtkUnitBase.GetNodeById(26);
+                var searchLabel = addon->AtkUnitBase.GetNodeById(25);
+                if (searchNode == null || searchLabel == null) return;
+
+                if (P.Config.ReplaceSearch)
+                {
+                    searchLabel->GetAsAtkTextNode()->SetText("Artisan 搜索");
+                }
+                else
+                {
+                    string searchText = Svc.Data.Excel.GetSheet<Addon>().GetRow(1412).Text;
+                    searchLabel->GetAsAtkTextNode()->SetText(searchText);
+                    return;
+                }
+
+                var textInput = (AtkComponentTextInput*)searchNode->GetComponent();
+                Search = Marshal.PtrToStringAnsi(new IntPtr(textInput->AtkComponentInputBase.UnkText1.StringPtr)).Trim();
+                var textSize = ImGui.CalcTextSize(Search);
+
+                var position = AtkResNodeFunctions.GetNodePosition(searchNode);
+                var scale = AtkResNodeFunctions.GetNodeScale(searchNode);
+                var size = new Vector2(searchNode->Width, searchNode->Height) * scale;
+                var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
+
+                ImGuiHelpers.ForceNextWindowMainViewport();
+                ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X, position.Y + size.Y));
+
+                try
+                {
+                    var compNode = (AtkComponentNode*)searchNode;
+                    if (compNode->Component->UldManager.SearchNodeById(18) == null) return;
+
+                    searched = !compNode->Component->UldManager.SearchNodeById(18)->IsVisible();
+
+                    if (Search.Length > 0 && !searched)
+                    {
+                        if (LuminaSheets.RecipeSheet.Values.Count(x => Regex.Match(x.ItemResult.Value.Name.RawString, Search, RegexOptions.IgnoreCase).Success) > 0)
+                        {
+                            ImGui.Begin($"###Search{searchNode->NodeId}", ImGuiWindowFlags.NoScrollbar
+                                | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoNavFocus
+                                | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings);
+
+                            ImGui.AlignTextToFramePadding();
+                            ImGui.SetNextItemWidth(size.Length() - 12f);
+
+                            int results = 0;
+                            foreach (var recipe in LuminaSheets.RecipeSheet.Values.Where(x => Regex.Match(x.ItemResult.Value.Name.RawString, Search, RegexOptions.IgnoreCase).Success))
+                            {
+                                if (results >= 24) continue;
+                                var selected = ImGui.Selectable($"{recipe.ItemResult.Value.Name} ({(Job)recipe.CraftType.Row + 8})###{recipe.RowId}");
+                                if (selected)
+                                {
+                                    var orid = Operations.GetSelectedRecipeEntry();
+                                    if (orid == null || (orid != null && orid->RecipeId != recipe.RowId))
+                                    {
+                                        AgentRecipeNote.Instance()->OpenRecipeByRecipeId(recipe.RowId);
+                                    }
+
+                                    searched = true;
+                                }
+                                results++;
+                            }
+                            ImGui.End();
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (ex is not RegexParseException)
+                        ex.Log();
+                }
+            }
+        }
+
+        private unsafe void DrawSupplyMissionOverlay()
+        {
+            if (TryGetAddonByName<AddonGrandCompanySupplyList>("GrandCompanySupplyList", out var addon))
+            {
+                try
+                {
+                    var subcontext = (AtkUnitBase*)Svc.GameGui.GetAddonByName("ContextMenu");
+                    if (subcontext != null && subcontext->IsVisible)
+                        return;
+
+                    if (addon->SupplyRadioButton is null)
+                        return;
+
+                    if (addon->SupplyRadioButton->UldManager.NodeList[1] != null && addon->SupplyRadioButton->UldManager.NodeList[1]->IsVisible())
+                        return;
+
+                    var timerWindow = Svc.GameGui.GetAddonByName("GrandCompanySupplyList");
+                    if (timerWindow == IntPtr.Zero)
+                        return;
+
+                    var atkUnitBase = (AtkUnitBase*)timerWindow;
+                    var node = atkUnitBase->UldManager.NodeList[19];
+
+                    if (!node->IsVisible())
+                        return;
+
+                    var position = AtkResNodeFunctions.GetNodePosition(node);
+                    var scale = AtkResNodeFunctions.GetNodeScale(node);
+                    var size = new Vector2(node->Width, node->Height) * scale;
+                    var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
+                    var textSize = ImGui.CalcTextSize("创建制作清单");
+
+                    ImGuiHelpers.ForceNextWindowMainViewport();
+                    ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X, position.Y + (textSize.Y * scale.Y) + (14f * scale.Y)));
+
+                    ImGui.PushStyleColor(ImGuiCol.WindowBg, 0);
+                    ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 0f);
+                    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(0f, 2f * scale.Y));
+                    ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(3f * scale.X, 3f * scale.Y));
+                    ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f, 0f));
+                    ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f);
+
+                    ImGui.Begin($"###SupplyTimerWindow", ImGuiWindowFlags.NoNavFocus | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings
+                        | ImGuiWindowFlags.AlwaysAutoResize);
+
+                    if (ImGui.GetIO().KeyShift)
+                    {
+                        if (ImGui.Button($"创建制作清单 (仅限星级)", new Vector2(size.X / 2, 0)))
+                        {
+                            CreateGCListAgent(atkUnitBase, false, true);
+                            P.PluginUi.IsOpen = true;
+                            P.PluginUi.OpenWindow = OpenWindow.Lists;
+                        }
+                        ImGui.SameLine();
+                        if (ImGui.Button($"创建制作清单 (包含半成品) (仅限星级)", new Vector2(size.X / 2, 0)))
+                        {
+                            CreateGCListAgent(atkUnitBase, true, true);
+                            P.PluginUi.IsOpen = true;
+                            P.PluginUi.OpenWindow = OpenWindow.Lists;
+                        }
+                    }
+                    else
+                    {
+                        if (ImGui.Button($"创建制作清单", new Vector2(size.X / 2, 0)))
+                        {
+                            CreateGCListAgent(atkUnitBase, false, false);
+                            P.PluginUi.IsOpen = true;
+                            P.PluginUi.OpenWindow = OpenWindow.Lists;
+                        }
+                        ImGui.SameLine();
+                        if (ImGui.Button($"创建制作清单 (包含半成品)", new Vector2(size.X / 2, 0)))
+                        {
+                            CreateGCListAgent(atkUnitBase, true, false);
+                            P.PluginUi.IsOpen = true;
+                            P.PluginUi.OpenWindow = OpenWindow.Lists;
+                        }
+                    }
+                    ImGui.End();
+                    ImGui.PopStyleVar(5);
+                    ImGui.PopStyleColor();
+
+
+                }
+                catch (Exception ex)
+                {
+                    ex.Log();
+                }
+            }
+            else
+            {
+                try
+                {
+                    var subcontext = (AtkUnitBase*)Svc.GameGui.GetAddonByName("AddonContextSub");
+
+                    if (subcontext != null && subcontext->IsVisible)
+                        return;
+
+                    subcontext = (AtkUnitBase*)Svc.GameGui.GetAddonByName("ContextMenu");
+                    if (subcontext != null && subcontext->IsVisible)
+                        return;
+
+                    var timerWindow = Svc.GameGui.GetAddonByName("ContentsInfoDetail");
+                    if (timerWindow == IntPtr.Zero)
+                        return;
+
+                    var atkUnitBase = (AtkUnitBase*)timerWindow;
+
+                    if (atkUnitBase->AtkValues[233].Type != FFXIVClientStructs.FFXIV.Component.GUI.ValueType.Int)
+                        return;
+
+                    var node = atkUnitBase->UldManager.NodeList[97];
+
+                    if (!node->IsVisible())
+                        return;
+
+                    var position = AtkResNodeFunctions.GetNodePosition(node);
+                    var scale = AtkResNodeFunctions.GetNodeScale(node);
+                    var size = new Vector2(node->Width, node->Height) * scale;
+                    var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
+
+                    var textSize = ImGui.CalcTextSize("创建制作清单");
+
+                    ImGuiHelpers.ForceNextWindowMainViewport();
+                    ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X, position.Y - (textSize.Y * scale.Y) - (5f * scale.Y)));
+
+                    ImGui.PushStyleColor(ImGuiCol.WindowBg, 0);
+                    ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 0f);
+                    ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(0f, 2f * scale.Y));
+                    ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(3f * scale.X, 3f * scale.Y));
+                    ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f, 0f));
+                    ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f);
+
+                    ImGui.Begin($"###SupplyTimerWindow", ImGuiWindowFlags.NoNavFocus | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings
+                        | ImGuiWindowFlags.AlwaysAutoResize);
+
+                    if (ImGui.GetIO().KeyShift)
+                    {
+                        if (ImGui.Button($"创建制作清单 (仅限星级)", new Vector2(size.X / 2, 0)))
+                        {
+                            CreateGCList(atkUnitBase, false, true);
+                            P.PluginUi.IsOpen = true;
+                            P.PluginUi.OpenWindow = OpenWindow.Lists;
+                        }
+                        var s = ImGui.GetItemRectSize();
+                        ImGui.SameLine();
+                        var oldScale = ImGui.GetIO().FontGlobalScale;
+                        ImGui.GetIO().FontGlobalScale = 0.80f * scale.X;
+                        using (var f = ImRaii.PushFont(ImGui.GetFont()))
+                        {
+                            if (ImGui.Button($"创建制作清单 (包含半成品) (仅限星级)", new Vector2(size.X / 2, s.Y)))
+                            {
+                                CreateGCList(atkUnitBase, true, true);
+                                P.PluginUi.IsOpen = true;
+                                P.PluginUi.OpenWindow = OpenWindow.Lists;
+                            }
+                        }
+                        ImGui.GetIO().FontGlobalScale = oldScale;
+                    }
+                    else
+                    {
+                        if (ImGui.Button($"创建制作清单", new Vector2(size.X / 2, 0)))
+                        {
+                            CreateGCList(atkUnitBase, false, false);
+                            P.PluginUi.IsOpen = true;
+                            P.PluginUi.OpenWindow = OpenWindow.Lists;
+                        }
+                        ImGui.SameLine();
+                        if (ImGui.Button($"创建制作清单 (包含半成品)", new Vector2(size.X / 2, 0)))
+                        {
+                            CreateGCList(atkUnitBase, true, false);
+                            P.PluginUi.IsOpen = true;
+                            P.PluginUi.OpenWindow = OpenWindow.Lists;
+                        }
+                    }
+
+                    ImGui.End();
+                    ImGui.PopStyleVar(5);
+                    ImGui.PopStyleColor();
+
+
+                }
+                catch (Exception ex)
+                {
+                    ex.Log();
+                }
+            }
+        }
+
+        private static unsafe void CreateGCListAgent(AtkUnitBase* atkUnitBase, bool withSubcrafts, bool boostedCraftsOnly)
+        {
+            NewCraftingList craftingList = new NewCraftingList();
+            craftingList.Name = $"GC Supply List ({DateTime.Now.ToShortDateString()})";
+
+            for (int i = 425; i <= 432; i++)
+            {
+                if (atkUnitBase->AtkValues[i].Type == 0)
+                    continue;
+
+                var ItemId = atkUnitBase->AtkValues[i].Int;
+                var requested = atkUnitBase->AtkValues[i - 40].Int;
+                uint job = TextureIdToJob(atkUnitBase->AtkValues[i - 360].Int);
+                bool starred = atkUnitBase->AtkValues[i - 400].Byte == 1;
+
+                if (!boostedCraftsOnly || (boostedCraftsOnly && starred))
+                {
+                    if (LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.Row == ItemId && x.CraftType.Row + 8 == job, out var recipe))
+                    {
+                        var timesToAdd = requested / recipe.AmountResult;
+
+                        if (withSubcrafts)
+                            CraftingListUI.AddAllSubcrafts(recipe, craftingList, timesToAdd);
+
+                        if (craftingList.Recipes.Any(x => x.ID == recipe.RowId))
+                        {
+                            craftingList.Recipes.First(x => x.ID == recipe.RowId).Quantity = timesToAdd;
+                        }
+                        else
+                        {
+                            craftingList.Recipes.Add(new() { Quantity = timesToAdd, ID = recipe.RowId });
+                        }
+
+                    }
+                }
+            }
+
+            craftingList.SetID();
+            craftingList.Save(true);
+
+            Notify.Success("制作清单已创建");
+        }
+
+        private static uint TextureIdToJob(int textureId)
+        {
+            return textureId switch
+            {
+                62008 => 8,
+                62009 => 9,
+                62010 => 10,
+                62011 => 11,
+                62012 => 12,
+                62013 => 13,
+                62014 => 14,
+                62015 => 15,
+                _ => 0
+            };
+        }
+
+        private static unsafe void CreateGCList(AtkUnitBase* atkUnitBase, bool withSubcrafts, bool boostedCraftOnly)
+        {
+            NewCraftingList craftingList = new NewCraftingList();
+            craftingList.Name = $"GC Supply List ({DateTime.Now.ToShortDateString()})";
+
+            for (int i = 233; i <= 240; i++)
+            {
+                if (atkUnitBase->AtkValues[i].Type == 0)
+                    continue;
+
+                var ItemId = atkUnitBase->AtkValues[i].Int;
+                var requested = atkUnitBase->AtkValues[i + 16].Int;
+                uint job = TextureIdToJob(atkUnitBase->AtkValues[i + 8].Int);
+                bool starred = atkUnitBase->AtkValues[i + 40].Byte == 1;
+
+                if (!boostedCraftOnly || (boostedCraftOnly && starred))
+                {
+                    if (LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.Row == ItemId && x.CraftType.Row + 8 == job, out var recipe))
+                    {
+                        var timesToAdd = requested / recipe.AmountResult;
+
+                        if (withSubcrafts)
+                            CraftingListUI.AddAllSubcrafts(recipe, craftingList, timesToAdd);
+
+                        if (craftingList.Recipes.Any(x => x.ID == recipe.RowId))
+                        {
+                            craftingList.Recipes.First(x => x.ID == recipe.RowId).Quantity = timesToAdd;
+                        }
+                        else
+                        {
+                            craftingList.Recipes.Add(new() { Quantity = timesToAdd, ID = recipe.RowId });
+                        }
+                    }
+                }
+            }
+
+            craftingList.SetID();
+            craftingList.Save(true);
+
+            Notify.Success("制作清单已创建");
         }
 
         private unsafe void DrawWorkshopOverlay()
         {
             try
             {
-                var subWindow = Service.GameGui.GetAddonByName("SubmarinePartsMenu", 1);
+                var subWindow = Svc.GameGui.GetAddonByName("SubmarinePartsMenu", 1);
                 if (subWindow == IntPtr.Zero)
                     return;
 
@@ -61,14 +470,14 @@ namespace Artisan
 
                 var node = addonPtr->UldManager.NodeList[2];
 
-                if (!node->IsVisible)
+                if (!node->IsVisible())
                     return;
 
                 var position = AtkResNodeFunctions.GetNodePosition(node);
                 var scale = AtkResNodeFunctions.GetNodeScale(node);
                 var size = new Vector2(node->Width, node->Height) * scale;
                 var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
-                var textSize = ImGui.CalcTextSize("为此阶段创建制作清单");
+                var textSize = ImGui.CalcTextSize("创建此阶段的制作清单");
 
                 ImGuiHelpers.ForceNextWindowMainViewport();
                 ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + (4f * scale.X), position.Y + size.Y - textSize.Y - (34f * scale.Y)));
@@ -77,17 +486,17 @@ namespace Artisan
                 float oldSize = ImGui.GetFont().Scale;
                 ImGui.GetFont().Scale *= scale.X;
                 ImGui.PushFont(ImGui.GetFont());
-                ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 0f.Scale());
-                ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(10f.Scale(), 5f.Scale()));
-                ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(3f.Scale(), 3f.Scale()));
-                ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f.Scale(), 0f.Scale()));
-                ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f.Scale());
-                ImGui.Begin($"###WorkshopButton{node->NodeID}", ImGuiWindowFlags.NoScrollbar
+                ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 0f);
+                ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(10f, 5f));
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(3f, 3f));
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f, 0f));
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f);
+                ImGui.Begin($"###WorkshopButton{node->NodeId}", ImGuiWindowFlags.NoScrollbar
                     | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoNavFocus
                     | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings);
 
 
-                if (ImGui.Button("为此阶段创建制作清单"))
+                if (ImGui.Button("创建此阶段的制作清单"))
                 {
                     var itemNameNode = addonPtr->UldManager.NodeList[37]->GetAsAtkTextNode();
                     var phaseProgress = addonPtr->UldManager.NodeList[26]->GetAsAtkTextNode();
@@ -103,7 +512,7 @@ namespace Artisan
                             var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                             FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, false, null, project);
-                            Notify.Success("部队合建清单已创建。");
+                            Notify.Success("部队工坊清单已创建");
                         }
                         else
                         {
@@ -116,13 +525,13 @@ namespace Artisan
                                 var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                                 FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, false, null, project);
-                                Notify.Success("部队合建清单已创建。");
+                                Notify.Success("部队工坊清单已创建");
                             }
                         }
                     }
                 }
 
-                if (ImGui.Button("为此阶段创建制作清单（包括半成品）"))
+                if (ImGui.Button("创建此阶段的制作清单 (包含半成品)"))
                 {
                     var itemNameNode = addonPtr->UldManager.NodeList[37]->GetAsAtkTextNode();
                     var phaseProgress = addonPtr->UldManager.NodeList[26]->GetAsAtkTextNode();
@@ -138,7 +547,7 @@ namespace Artisan
                             var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                             FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, true, null, project);
-                            Notify.Success("部队合建清单已创建。");
+                            Notify.Success("部队工坊清单已创建");
                         }
                         else
                         {
@@ -151,7 +560,7 @@ namespace Artisan
                                 var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                                 FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, true, null, project);
-                                Notify.Success("部队合建清单已创建。");
+                                Notify.Success("部队工坊清单已创建");
                             }
                         }
                     }
@@ -169,10 +578,9 @@ namespace Artisan
 
         public override void PreDraw()
         {
-            if (!P.config.DisableTheme)
+            if (!P.Config.DisableTheme)
             {
                 P.Style.Push();
-                ImGui.PushFont(P.CustomFont);
                 P.StylePushed = true;
             }
         }
@@ -182,7 +590,6 @@ namespace Artisan
             if (P.StylePushed)
             {
                 P.Style.Pop();
-                ImGui.PopFont();
                 P.StylePushed = false;
             }
         }
@@ -190,7 +597,7 @@ namespace Artisan
 
         public unsafe static void DrawOptions()
         {
-            var recipeWindow = Service.GameGui.GetAddonByName("RecipeNote", 1);
+            var recipeWindow = Svc.GameGui.GetAddonByName("RecipeNote", 1);
             if (recipeWindow == IntPtr.Zero)
                 return;
 
@@ -203,14 +610,14 @@ namespace Artisan
 
             if (addonPtr->UldManager.NodeListCount > 1)
             {
-                if (addonPtr->UldManager.NodeList[1]->IsVisible)
+                if (addonPtr->UldManager.NodeList[1]->IsVisible())
                 {
                     var node = addonPtr->UldManager.NodeList[1];
 
-                    if (!node->IsVisible)
+                    if (!node->IsVisible())
                         return;
 
-                    if (Service.Configuration.LockMiniMenu)
+                    if (P.Config.LockMiniMenuR)
                     {
                         var position = AtkResNodeFunctions.GetNodePosition(node);
                         var scale = AtkResNodeFunctions.GetNodeScale(node);
@@ -220,7 +627,7 @@ namespace Artisan
 
                         ImGuiHelpers.ForceNextWindowMainViewport();
 
-                        if ((AtkResNodeFunctions.ResetPosition && position.X != 0) || Service.Configuration.LockMiniMenu)
+                        if ((AtkResNodeFunctions.ResetPosition && position.X != 0) || P.Config.LockMiniMenuR)
                         {
                             ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + size.X + 7, position.Y + 7), ImGuiCond.Always);
                             AtkResNodeFunctions.ResetPosition = false;
@@ -233,8 +640,12 @@ namespace Artisan
 
                     ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(7f, 7f));
                     ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f, 0f));
-                    ImGui.Begin($"###Options{node->NodeID}", ImGuiWindowFlags.NoScrollbar
-                        | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.AlwaysUseWindowPadding);
+                    var flags = ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.AlwaysUseWindowPadding;
+                    if (P.Config.PinMiniMenu)
+                        flags |= ImGuiWindowFlags.NoMove;
+
+                    ImGui.Begin($"###Options{node->NodeId}", flags);
+
 
                     DrawCopyOfCraftMenu();
 
@@ -252,32 +663,40 @@ namespace Artisan
                 P.PluginUi.IsOpen = true;
             }
 
-            bool autoMode = Service.Configuration.AutoMode;
+            bool autoMode = P.Config.AutoMode;
 
-            if (ImGui.Checkbox("自动模式", ref autoMode))
+            if (ImGui.Checkbox("自动执行模式", ref autoMode))
             {
-                Service.Configuration.AutoMode = autoMode;
-                Service.Configuration.Save();
+                P.Config.AutoMode = autoMode;
+                P.Config.Save();
+            }
+            bool enable = Endurance.Enable;
+
+            if (!CraftingListFunctions.HasItemsForRecipe(Endurance.RecipeID))
+                ImGui.BeginDisabled();
+
+            if (ImGui.Checkbox("续航模式切换", ref enable))
+            {
+                Endurance.ToggleEndurance(enable);
             }
 
-            bool enable = Handler.Enable;
-            if (ImGui.Checkbox("持续模式", ref enable))
+            if (!CraftingListFunctions.HasItemsForRecipe(Endurance.RecipeID))
             {
-                Handler.Enable = enable;
-            }
+                ImGui.EndDisabled();
 
-            bool macroMode = Service.Configuration.UseMacroMode;
-            if (ImGui.Checkbox("宏模式", ref macroMode))
-            {
-                Service.Configuration.UseMacroMode = macroMode;
-                Service.Configuration.Save();
+                if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+                {
+                    var recipe = LuminaSheets.RecipeSheet!.First(x => x.Key == Endurance.RecipeID).Value;
+                    ImGui.BeginTooltip();
+                    ImGui.Text($"你无法开始续航模式，因为你不具备制作该配方所需的材料。\r\n缺少: {string.Join(", ", PreCrafting.MissingIngredients(recipe))}");
+                    ImGui.EndTooltip();
+                }
             }
-
         }
 
         public unsafe static void DrawMacroOptions()
         {
-            var recipeWindow = Service.GameGui.GetAddonByName("RecipeNote", 1);
+            var recipeWindow = Svc.GameGui.GetAddonByName("RecipeNote", 1);
             if (recipeWindow == IntPtr.Zero)
                 return;
 
@@ -288,24 +707,20 @@ namespace Artisan
             var baseX = addonPtr->X;
             var baseY = addonPtr->Y;
 
-            if (addonPtr->UldManager.NodeListCount >= 2 && addonPtr->UldManager.NodeList[1]->IsVisible)
+            if (addonPtr->UldManager.NodeListCount >= 2 && addonPtr->UldManager.NodeList[1]->IsVisible())
             {
                 var node = addonPtr->UldManager.NodeList[1];
 
-                if (Service.Configuration.UserMacros.Count == 0)
-                    return;
-
-                if (!node->IsVisible)
+                if (!node->IsVisible())
                     return;
 
                 var position = AtkResNodeFunctions.GetNodePosition(node);
                 var scale = AtkResNodeFunctions.GetNodeScale(node);
                 var size = new Vector2(node->Width, node->Height) * scale;
                 var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
-                //position += ImGuiHelpers.MainViewport.Pos;
 
                 ImGuiHelpers.ForceNextWindowMainViewport();
-                if ((AtkResNodeFunctions.ResetPosition && position.X != 0) || Service.Configuration.LockMiniMenu)
+                if ((AtkResNodeFunctions.ResetPosition && position.X != 0) || P.Config.LockMiniMenuR)
                 {
                     ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + size.X + 7, position.Y + 7), ImGuiCond.FirstUseEver);
                     AtkResNodeFunctions.ResetPosition = false;
@@ -315,40 +730,89 @@ namespace Artisan
                     ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + size.X + 7, position.Y + 7), ImGuiCond.FirstUseEver);
                 }
 
-                //Dalamud.Logging.PluginLog.Debug($"{position.X + node->Width + 7}");
+                //Svc.Log.Debug($"{position.X + node->Width + 7}");
                 ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(7f, 7f));
                 ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f, 0f));
-                ImGui.Begin($"###Options{node->NodeID}", ImGuiWindowFlags.NoScrollbar
+                ImGui.Begin($"###Options{node->NodeId}", ImGuiWindowFlags.NoScrollbar
                     | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.AlwaysUseWindowPadding);
 
-                string? preview = Service.Configuration.IndividualMacros.TryGetValue((uint)Handler.RecipeID, out var prevMacro) && prevMacro != null ? Service.Configuration.IndividualMacros[(uint)Handler.RecipeID].Name : "";
-                if (prevMacro is not null && !Service.Configuration.UserMacros.Where(x => x.ID == prevMacro.ID).Any())
-                {
-                    preview = "";
-                    Service.Configuration.IndividualMacros[(uint)Handler.RecipeID] = null;
-                    Service.Configuration.Save();
-                }
-
                 ImGui.Spacing();
-                ImGui.Text($"使用宏来制作 ({Handler.RecipeName})");
-                if (ImGui.BeginCombo("", preview))
+
+                if (SimpleTweaks.IsFocusTweakEnabled())
                 {
-                    if (ImGui.Selectable(""))
+                    ImGuiEx.TextWrapped(ImGuiColors.DalamudRed, $@"警告: 你已开启 SimpleTweaksPlugin 的 ""Auto Focus Recipe Search"" 功能。 此功能与 Artisan 高度不兼容，建议禁用。");
+                }
+                if (Endurance.RecipeID != 0)
+                {
+                    var recipe = LuminaSheets.RecipeSheet[Endurance.RecipeID];
+                    ImGuiEx.ImGuiLineCentered("###RecipeWindowRecipeName", () => { ImGuiEx.TextUnderlined($"{recipe.ItemResult.Value.Name}"); });
+                    var config = P.Config.RecipeConfigs.GetValueOrDefault(recipe.RowId) ?? new();
+                    var stats = CharacterStats.GetBaseStatsForClassHeuristic(Job.CRP + recipe.CraftType.Row);
+                    stats.AddConsumables(new(config.RequiredFood, config.RequiredFoodHQ), new(config.RequiredPotion, config.RequiredPotionHQ));
+                    var craft = Crafting.BuildCraftStateForRecipe(stats, Job.CRP + recipe.CraftType.Row, recipe);
+                    if (config.Draw(craft))
                     {
-                        Service.Configuration.IndividualMacros.Remove((uint)Handler.RecipeID);
-                        Service.Configuration.Save();
-                    }
-                    foreach (var macro in Service.Configuration.UserMacros)
-                    {
-                        bool selected = Service.Configuration.IndividualMacros.TryGetValue((uint)Handler.RecipeID, out var selectedMacro) && selectedMacro != null;
-                        if (ImGui.Selectable(macro.Name, selected))
-                        {
-                            Service.Configuration.IndividualMacros[(uint)Handler.RecipeID] = macro;
-                            Service.Configuration.Save();
-                        }
+                        Svc.Log.Debug($"更新配置 {recipe.RowId}");
+                        P.Config.RecipeConfigs[recipe.RowId] = config;
+                        P.Config.Save();
                     }
 
-                    ImGui.EndCombo();
+                    if (!P.Config.HideRecipeWindowSimulator)
+                    {
+                        var solverHint = Simulator.SimulatorResult(recipe, config, craft, out var hintColor);
+
+                        if (!recipe.IsExpert)
+                            ImGuiEx.TextWrapped(hintColor, solverHint);
+                        else
+                            ImGuiEx.TextWrapped($"请在模拟器中运行此配方以获得结果。");
+
+                        if (ImGui.IsItemClicked())
+                        {
+                            P.PluginUi.OpenWindow = UI.OpenWindow.Simulator;
+                            P.PluginUi.IsOpen = true;
+                            SimulatorUI.SelectedRecipe = recipe;
+                            SimulatorUI.ResetSim();
+                            if (config.RequiredPotion > 0)
+                            {
+                                SimulatorUI.SimMedicine ??= new();
+                                SimulatorUI.SimMedicine.Id = config.RequiredPotion;
+                                SimulatorUI.SimMedicine.ConsumableHQ = config.RequiredPotionHQ;
+                                SimulatorUI.SimMedicine.Stats = new ConsumableStats(config.RequiredPotion, config.RequiredPotionHQ);
+                            }
+                            if (config.RequiredFood > 0)
+                            {
+                                SimulatorUI.SimFood ??= new();
+                                SimulatorUI.SimFood.Id = config.RequiredFood;
+                                SimulatorUI.SimFood.ConsumableHQ = config.RequiredFoodHQ;
+                                SimulatorUI.SimFood.Stats = new ConsumableStats(config.RequiredFood, config.RequiredFoodHQ);
+                            }
+
+                            foreach (ref var gs in RaptureGearsetModule.Instance()->Entries)
+                            {
+                                if ((Job)gs.ClassJob == Job.CRP + recipe.CraftType.Row)
+                                {
+                                    if (SimulatorUI.SimGS is null || (Job)SimulatorUI.SimGS.Value.ClassJob != Job.CRP + recipe.CraftType.Row)
+                                    {
+                                        SimulatorUI.SimGS = gs;
+                                    }
+
+                                    if (SimulatorUI.SimGS.Value.ItemLevel < gs.ItemLevel)
+                                        SimulatorUI.SimGS = gs;
+                                }
+                            }
+
+                            var rawSolver = CraftingProcessor.GetSolverForRecipe(config, craft);
+                            SimulatorUI._selectedSolver = new(rawSolver.Name, rawSolver.Def.Create(craft, rawSolver.Flavour));
+                        }
+
+                        if (ImGui.IsItemHovered())
+                        {
+                            ImGuiEx.Tooltip($"点击在模拟器中打开");
+                        }
+
+
+                    }
+
                 }
 
                 ImGui.End();
@@ -358,19 +822,16 @@ namespace Artisan
 
         internal static unsafe void DrawEnduranceCounter()
         {
-            if (Handler.RecipeID == 0)
+            if (Endurance.RecipeID == 0)
                 return;
 
-            var recipeWindow = Service.GameGui.GetAddonByName("RecipeNote", 1);
+            var recipeWindow = Svc.GameGui.GetAddonByName("RecipeNote", 1);
             if (recipeWindow == IntPtr.Zero)
                 return;
 
             var addonPtr = (AtkUnitBase*)recipeWindow;
             if (addonPtr == null)
                 return;
-
-            var baseX = addonPtr->X;
-            var baseY = addonPtr->Y;
 
             if (addonPtr->UldManager.NodeListCount >= 5)
             {
@@ -382,58 +843,75 @@ namespace Artisan
                 var size = new Vector2(node->Width, node->Height) * scale;
                 var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
                 //position += ImGuiHelpers.MainViewport.Pos;
-                var textHeight = ImGui.CalcTextSize("制作X次:");
+                var textHeight = ImGui.CalcTextSize("制作 X 次:");
+                var craftableCount = addonPtr->UldManager.NodeList[35]->GetAsAtkTextNode()->NodeText.ToString() == "" ? 0 : Convert.ToInt32(addonPtr->UldManager.NodeList[35]->GetAsAtkTextNode()->NodeText.ToString().GetNumbers());
+
+                if (craftableCount == 0) return;
 
                 ImGuiHelpers.ForceNextWindowMainViewport();
-                ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + (4f * scale.X), position.Y - textHeight.Y - (17f * scale.Y)));
+                ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + (4f * scale.X) - 40f, position.Y - 16f - (17f * scale.Y)));
 
-                //Dalamud.Logging.PluginLog.Debug($"Length: {size.Length()}, Width: {node->Width}, Scale: {scale.Y}");
+                //Svc.Log.Debug($"Length: {size.Length()}, Width: {node->Width}, Scale: {scale.Y}");
 
-                ImGui.PushStyleColor(ImGuiCol.WindowBg, 0);
-                float oldSize = ImGui.GetFont().Scale;
-                ImGui.GetFont().Scale *= scale.X;
-                ImGui.PushFont(ImGui.GetFont());
-                ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 0f.Scale());
-                ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(5f.Scale(), 2.5f.Scale()));
-                ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(3f.Scale(), 3f.Scale()));
-                ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f.Scale(), 0f.Scale()));
-                ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f.Scale());
-                ImGui.Begin($"###Repeat{node->NodeID}", ImGuiWindowFlags.NoScrollbar
-                    | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoNavFocus
-                    | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings);
+                DrawCounter(node, scale, craftableCount);
+            }
+        }
 
-                ImGui.Text("制作X次:");
+        private static unsafe void DrawCounter(AtkResNode* node, Vector2 scale, int craftableCount)
+        {
+            ImGui.PushStyleColor(ImGuiCol.WindowBg, 0);
+            ImGui.PushStyleVar(ImGuiStyleVar.FrameRounding, 0f);
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, new Vector2(5f, 2.5f));
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(3f, 3f));
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f, 0f));
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f);
+
+            ImGui.Begin($"###Repeat{node->NodeId}", ImGuiWindowFlags.NoScrollbar
+                | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoNavFocus
+                | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoSavedSettings);
+
+            var oldScale = ImGui.GetIO().FontGlobalScale;
+            ImGui.GetIO().FontGlobalScale = 1f * scale.X;
+            using (var font = ImRaii.PushFont(ImGui.GetFont()))
+            {
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("制作 X 次:");
                 ImGui.SameLine();
-                ImGui.PushItemWidth(110f.Scale() * scale.X);
-                if (ImGui.InputInt($"###TimesRepeat{node->NodeID}", ref Service.Configuration.CraftX))
+                ImGui.PushItemWidth(110f * scale.X);
+                if (ImGui.InputInt($"###TimesRepeat{node->NodeId}", ref P.Config.CraftX))
                 {
-                    if (Service.Configuration.CraftX < 0)
-                        Service.Configuration.CraftX = 0;
+                    if (P.Config.CraftX < 0)
+                        P.Config.CraftX = 0;
+
+                    if (P.Config.CraftX > craftableCount)
+                        P.Config.CraftX = craftableCount;
 
                 }
                 ImGui.SameLine();
-                if (Service.Configuration.CraftX > 0)
+                if (P.Config.CraftX > 0)
                 {
-                    if (ImGui.Button($"制作 {Service.Configuration.CraftX}"))
+                    if (ImGui.Button($"制作 {P.Config.CraftX}"))
                     {
-                        Service.Configuration.CraftingX = true;
-                        Handler.Enable = true;
+                        P.Config.CraftingX = true;
+                        Endurance.ToggleEndurance(true);
                     }
                 }
                 else
                 {
-                    if (ImGui.Button("全部制作"))
+                    if (ImGui.Button($"制作所有 ({craftableCount})"))
                     {
-                        Handler.Enable = true;
+                        P.Config.CraftX = craftableCount;
+                        P.Config.CraftingX = true;
+                        Endurance.ToggleEndurance(true);
                     }
                 }
 
-                ImGui.End();
-                ImGui.PopStyleVar(5);
-                ImGui.GetFont().Scale = oldSize;
-                ImGui.PopFont();
-                ImGui.PopStyleColor();
+                ImGui.GetIO().FontGlobalScale = oldScale;
             }
+
+            ImGui.End();
+            ImGui.PopStyleVar(5);
+            ImGui.PopStyleColor();
         }
     }
 }

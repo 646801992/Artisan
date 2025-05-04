@@ -1,31 +1,51 @@
 ﻿using Artisan.Autocraft;
 using Artisan.CraftingLists;
-using Artisan.MacroSystem;
+using Artisan.CraftingLogic;
+using Artisan.CraftingLogic.Solvers;
+using Artisan.GameInterop;
 using Artisan.RawInformation;
+using Artisan.RawInformation.Character;
+using Dalamud.Game.Gui.Toast;
 using Dalamud.Interface;
+using Dalamud.Interface.Colors;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
+using ECommons.DalamudServices;
 using ECommons.ImGuiMethods;
+using ECommons.Logging;
 using ImGuiNET;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static Artisan.CraftingLogic.CurrentCraft;
 
 namespace Artisan.UI
 {
-    internal class CraftingWindow : Window
+    internal class CraftingWindow : Window, IDisposable
     {
-#if DEBUG
-        public bool repeatTrial = false;
-#endif
+        public bool RepeatTrial;
+        private DateTime _estimatedCraftEnd;
 
-        public CraftingWindow() : base("Artisan制作窗口###MainCraftWindow", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.AlwaysAutoResize)
+        public CraftingWindow() : base("Artisan Crafting Window###MainCraftWindow", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse)
         {
             IsOpen = true;
             ShowCloseButton = false;
             RespectCloseHotkey = false;
+            this.SizeConstraints = new()
+            {
+                MinimumSize = new System.Numerics.Vector2(150f, 0f),
+                MaximumSize = new System.Numerics.Vector2(310f, 500f)
+            };
+
+            CraftingProcessor.SolverStarted += OnSolverStarted;
+            CraftingProcessor.SolverFailed += OnSolverFailed;
+            CraftingProcessor.SolverFinished += OnSolverFinished;
+            CraftingProcessor.RecommendationReady += OnRecommendationReady;
+        }
+
+        public void Dispose()
+        {
+            CraftingProcessor.SolverStarted -= OnSolverStarted;
+            CraftingProcessor.SolverFailed -= OnSolverFailed;
+            CraftingProcessor.SolverFinished -= OnSolverFinished;
+            CraftingProcessor.RecommendationReady -= OnRecommendationReady;
         }
 
         public override bool DrawConditions()
@@ -35,10 +55,9 @@ namespace Artisan.UI
 
         public override void PreDraw()
         {
-            if (!P.config.DisableTheme)
+            if (!P.Config.DisableTheme)
             {
                 P.Style.Push();
-                ImGui.PushFont(P.CustomFont);
                 P.StylePushed = true;
             }
         }
@@ -48,86 +67,141 @@ namespace Artisan.UI
             if (P.StylePushed)
             {
                 P.Style.Pop();
-                ImGui.PopFont();
                 P.StylePushed = false;
             }
         }
 
         public override void Draw()
         {
-            if (!Service.Configuration.DisableHighlightedAction)
-                Hotbars.MakeButtonsGlow(CurrentRecommendation);
+            if (!P.Config.DisableHighlightedAction)
+                Hotbars.MakeButtonsGlow(CraftingProcessor.NextRec.Action);
 
             if (ImGuiEx.AddHeaderIcon("OpenConfig", FontAwesomeIcon.Cog, new ImGuiEx.HeaderIconOptions() { Tooltip = "打开设置" }))
             {
                 P.PluginUi.IsOpen = true;
             }
 
-            bool autoMode = Service.Configuration.AutoMode;
-
-            if (ImGui.Checkbox("自动模式", ref autoMode))
+            if (Crafting.CurCraft != null && !Crafting.CurCraft.CraftExpert && Crafting.CurRecipe?.SecretRecipeBook.Row > 0 && Crafting.CurCraft?.CraftLevel == Crafting.CurCraft?.StatLevel && !CraftingProcessor.ActiveSolver.IsType<MacroSolver>())
             {
-                Service.Configuration.AutoMode = autoMode;
-                Service.Configuration.Save();
+                ImGui.Dummy(new System.Numerics.Vector2(12f));
+                ImGuiEx.TextWrapped(ImGuiColors.DalamudYellow, "这是当前等级的主配方，您的成功率可能会有所变化，因此建议使用 Artisan 宏或手动来解决此问题。");
+            }
+
+            bool autoMode = P.Config.AutoMode;
+            if (ImGui.Checkbox("自动执行模式", ref autoMode))
+            {
+                P.Config.AutoMode = autoMode;
+                P.Config.Save();
             }
 
             if (autoMode)
             {
-                var delay = Service.Configuration.AutoDelay;
+                var delay = P.Config.AutoDelay;
                 ImGui.PushItemWidth(200);
-                if (ImGui.SliderInt("设置延迟(ms)", ref delay, 0, 1000))
+                if (ImGui.SliderInt("设置延迟 (ms)", ref delay, 0, 1000))
                 {
                     if (delay < 0) delay = 0;
                     if (delay > 1000) delay = 1000;
 
-                    Service.Configuration.AutoDelay = delay;
-                    Service.Configuration.Save();
+                    P.Config.AutoDelay = delay;
+                    P.Config.Save();
                 }
             }
 
-
-            if (Handler.RecipeID != 0 && !CraftingListUI.Processing)
+            if (Endurance.RecipeID != 0 && !CraftingListUI.Processing && Endurance.Enable)
             {
-                bool enable = Handler.Enable;
-                if (ImGui.Checkbox("自动持续模式", ref enable))
+                if (ImGui.Button("禁用续航模式"))
                 {
-                    Handler.Enable = enable;
+                    Endurance.Enable = false;
+                    P.TM.Abort();
+                    CraftingListFunctions.CLTM.Abort();
+                    PreCrafting.Tasks.Clear();
                 }
             }
 
-            if (Service.Configuration.CraftingX && Handler.Enable)
-            {
-                ImGui.Text($"剩余制作次数：{Service.Configuration.CraftX}");
-                if (Service.Configuration.IndividualMacros.TryGetValue((uint)Handler.RecipeID, out var prevMacro) && prevMacro != null)
-                {
-                    Macro? macro = Service.Configuration.IndividualMacros[(uint)Handler.RecipeID];
-                    if (macro != null)
-                    {
-                        Double timeInSeconds = ((MacroUI.GetMacroLength(macro) * Service.Configuration.CraftX) + (Service.Configuration.CraftX * 2)); // Counting crafting duration + 2 seconds between crafts.
-                        TimeSpan t = TimeSpan.FromSeconds(timeInSeconds);
-                        string duration = string.Format("{0:D2}小时 {1:D2}分钟 {2:D2}秒", t.Hours, t.Minutes, t.Seconds);
+            if (!Endurance.Enable && Crafting.IsTrial)
+                ImGui.Checkbox("重复制作练习", ref RepeatTrial);
 
-                        ImGui.Text($"预计剩余时间：{duration}");
-                    }
-                }
+            if (CraftingProcessor.ActiveSolver)
+            {
+                var text = $"使用 {CraftingProcessor.ActiveSolver.Name}";
+                if (CraftingProcessor.NextRec.Comment.Length > 0)
+                    text += $" ({CraftingProcessor.NextRec.Comment})";
+                ImGuiEx.TextWrapped(text.Replace("%", ""));
             }
 
-#if DEBUG
-            ImGui.Checkbox("重复模拟制作", ref repeatTrial);
-#endif
+            if (P.Config.CraftingX && Endurance.Enable)
+                ImGui.Text($"剩余制作次数: {P.Config.CraftX}");
 
-            if (!Service.Configuration.AutoMode)
+            if (_estimatedCraftEnd != default)
             {
-                ImGui.Text("半自动模式");
+                var diff = _estimatedCraftEnd - DateTime.Now;
+                string duration = string.Format("{0:D2}h {1:D2}m {2:D2}s", diff.Hours, diff.Minutes, diff.Seconds);
+                ImGui.Text($"预计剩余时长: {duration}");
+            }
 
-                if (ImGui.Button("执行推荐操作"))
+            if (!P.Config.AutoMode)
+            {
+                ImGui.Text("半手动模式");
+
+                var action = CraftingProcessor.NextRec.Action;
+                using var disable = ImRaii.Disabled(action == Skills.None);
+
+                if (ImGui.Button("执行建议操作"))
                 {
-                    Hotbars.ExecuteRecommended(CurrentRecommendation);
+                    ActionManagerEx.UseSkill(action);
                 }
                 if (ImGui.Button("获取推荐操作"))
                 {
-                    Artisan.FetchRecommendation(CurrentStep);
+                    ShowRecommendation(action);
                 }
+            }
+        }
+
+        private void ShowRecommendation(Skills action)
+        {
+            if (!P.Config.DisableToasts)
+            {
+                QuestToastOptions options = new() { IconId = action.IconOfAction(CharacterInfo.JobID) };
+                Svc.Toasts.ShowQuest($"使用 {action.NameOfAction()}", options);
+            }
+        }
+
+        private void OnSolverStarted(Lumina.Excel.GeneratedSheets.Recipe recipe, SolverRef solver, CraftState craft, StepState initialStep)
+        {
+            if (P.Config.AutoMode && solver)
+            {
+                var estimatedTime = SolverUtils.EstimateCraftTime(solver.Clone()!, craft, initialStep.Quality);
+                var count = P.Config.CraftingX && Endurance.Enable ? P.Config.CraftX : 1;
+                _estimatedCraftEnd = DateTime.Now + count * estimatedTime;
+            }
+        }
+
+        private void OnSolverFailed(Lumina.Excel.GeneratedSheets.Recipe recipe, string reason)
+        {
+            var text = $"{reason}. Artisan 将不会继续。";
+            Svc.Toasts.ShowError(text);
+            DuoLog.Error(text);
+        }
+
+        private void OnSolverFinished(Lumina.Excel.GeneratedSheets.Recipe recipe, SolverRef solver, CraftState craft, StepState finalStep)
+        {
+            _estimatedCraftEnd = default;
+        }
+
+        private void OnRecommendationReady(Lumina.Excel.GeneratedSheets.Recipe recipe, SolverRef solver, CraftState craft, StepState step, Solver.Recommendation recommendation)
+        {
+            Svc.Log.Debug($"{step.TrainedPerfectionAvailable}");
+            if (!Simulator.CanUseAction(craft, step, recommendation.Action))
+            {
+                return;
+            }
+            ShowRecommendation(recommendation.Action);
+            if (P.Config.AutoMode)
+            {
+                P.CTM.DelayNext(P.Config.AutoDelay);
+                P.CTM.Enqueue(() => Crafting.CurState == Crafting.State.InProgress, 3000, true, "WaitForStateToUseAction");
+                P.CTM.Enqueue(() => ActionManagerEx.UseSkill(recommendation.Action));
             }
         }
     }

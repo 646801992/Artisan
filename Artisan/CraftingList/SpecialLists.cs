@@ -1,6 +1,6 @@
 ﻿using Artisan.QuestSync;
 using Artisan.RawInformation;
-using Dalamud.Logging;
+using Dalamud.Interface.Components;
 using Dalamud.Utility;
 using ECommons;
 using ECommons.DalamudServices;
@@ -9,6 +9,8 @@ using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace Artisan.CraftingLists
 {
@@ -19,7 +21,7 @@ namespace Artisan.CraftingLists
         private static Dictionary<ushort, bool> Durabilities = LuminaSheets.RecipeSheet.Values.Where(x => x.Number > 0).Select(x => (ushort)(x.RecipeLevelTable.Value.Durability * ((float)x.DurabilityFactor / 100))).Distinct().Order().ToDictionary(x => x, x => false);
 
         private static int minLevel = 1;
-        private static int maxLevel = 90;
+        private static int maxLevel = 100;
 
         private static int minCraftsmanship = LuminaSheets.RecipeSheet.Values.Min(x => x.RequiredCraftsmanship);
         private static int minControl = LuminaSheets.RecipeSheet.Values.Min(x => x.RequiredControl);
@@ -28,47 +30,34 @@ namespace Artisan.CraftingLists
         private static Dictionary<int, bool> hasToBeUnlocked = new Dictionary<int, bool>() { [1] = false, [2] = false };
         private static Dictionary<int, bool> questRecipe = new Dictionary<int, bool>() { [1] = false, [2] = false };
         private static Dictionary<int, bool> isSecondary = new Dictionary<int, bool>() { [1] = false, [2] = false };
+        private static Dictionary<int, bool> alreadyCrafted = new Dictionary<int, bool>() { [1] = false, [2] = false };
+        private static Dictionary<int, bool> countsToLog = new Dictionary<int, bool>() { [1] = false, [2] = false };
+        private static Dictionary<int, bool> isCollectable = new Dictionary<int, bool>() { [1] = false, [2] = false };
+        private static Dictionary<int, bool> isHQAble = new Dictionary<int, bool>() { [1] = false, [2] = false };
+
+        private static string Contains = string.Empty;
 
         private static Dictionary<int, bool> Yields = LuminaSheets.RecipeSheet.Values.DistinctBy(x => x.AmountResult).OrderBy(x => x.AmountResult).ToDictionary(x => (int)x.AmountResult, x => false);
-        //private static Dictionary<float, bool> PatchRelease = LuminaSheets.RecipeSheet.Values.Where(x => x.PatchNumber > 0).DistinctBy(x => x.PatchNumber).OrderBy(x => x.PatchNumber).ToDictionary(x => (float)x.PatchNumber / 100, x => false);
         private static Dictionary<string, bool> Stars = LuminaSheets.RecipeLevelTableSheet.Values.DistinctBy(x => x.Stars).ToDictionary(x => "★".Repeat(x.Stars), x => false);
         private static Dictionary<int, bool> Stats = LuminaSheets.RecipeSheet.Values.SelectMany(x => x.ItemResult.Value.UnkData59).DistinctBy(x => x.BaseParam).Where(x => x.BaseParam > 0).OrderBy(x => x.BaseParam).ToDictionary(x => (int)x.BaseParam, x => false);
 
         private static float DurY = 0f;
+
         public static void Draw()
         {
-            ImGui.TextWrapped($@"此栏主要是基于某个特定标准来创建清单, 而非逐个添加. 请为你的列表命名, 然后在下方调整你的标准, 最后点击“创建清单”, 插件会自动生成符合标准的物品列表. 如果你不勾选任何选项, 则该类别将会被视为“任意”或“所有”。");
+            ImGui.TextWrapped($@"此部分用于根据特定选项创建清单，而不是单独添加物品。为你的清单命名，并从以下选项中选择标准，然后点击“创建清单”，将创建一个包含所有匹配该标准的物品的新清单。如果你不选择任何复选框，则除了制作所需职业，该类别将被视为“任意”或“所有”。");
+            ImGui.TextWrapped("生产职业：\n刻木匠——CRP      锻铁匠——BSM        铸甲匠——ARM           雕金匠——GSM\n制革匠——LTW      裁衣匠——WVR        炼金术士——ALC       烹调师——CUL");
 
             ImGui.Separator();
 
-            ImGui.Columns(6, null, false);
-
             ImGui.TextWrapped("清单名称");
-            ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X);
+            ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X / 2);
             ImGui.InputText("###NameInput", ref listName, 300);
 
-            ImGui.TextWrapped($"最大耐久");
-            if (ImGui.BeginListBox("###SpecialListDurability", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 110)))
-            {
-                ImGui.Columns(2, null, false);
-                foreach (var dur in Durabilities)
-                {
-                    var val = dur.Value;
-                    if (ImGui.Checkbox($"{dur.Key}", ref val))
-                    {
-                        Durabilities[dur.Key] = val;
-                    }
-                    ImGui.NextColumn();
-                }
-                ImGui.EndListBox();
-
-                DurY = ImGui.GetCursorPosY();
-            }
             ImGui.Columns(6, null, false);
-            ImGui.NextColumn();
 
             ImGui.TextWrapped("选择职业");
-            if (ImGui.BeginListBox("###JobSelectListBox", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 110)))
+            if (ImGui.BeginListBox("###JobSelectListBox", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 80f.Scale())))
             {
                 ImGui.Columns(2, null, false);
                 foreach (var item in JobSelected)
@@ -84,15 +73,114 @@ namespace Artisan.CraftingLists
 
                 ImGui.EndListBox();
             }
-            ImGui.Columns(6, null, false);
+
+
+            ImGui.TextWrapped($"已制作的配方");
+            if (ImGui.BeginListBox("###AlreadyCraftedRecipes", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 20f.Scale())))
+            {
+                ImGui.Columns(2, null, false);
+                bool yes = alreadyCrafted[1];
+                if (ImGui.Checkbox("是", ref yes))
+                {
+                    alreadyCrafted[1] = yes;
+                }
+                ImGui.NextColumn();
+                bool no = alreadyCrafted[2];
+                if (ImGui.Checkbox("否", ref no))
+                {
+                    alreadyCrafted[2] = no;
+                }
+                ImGui.EndListBox();
+            }
+
+            ImGui.TextWrapped($"可收集的配方");
+            if (ImGui.BeginListBox("###CollectableRecipes", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 20f.Scale())))
+            {
+                ImGui.Columns(2, null, false);
+                bool yes = isCollectable[1];
+                if (ImGui.Checkbox("是", ref yes))
+                {
+                    isCollectable[1] = yes;
+                }
+                ImGui.NextColumn();
+                bool no = isCollectable[2];
+                if (ImGui.Checkbox("否", ref no))
+                {
+                    isCollectable[2] = no;
+                }
+
+                ImGui.EndListBox();
+            }
+            ImGui.NextColumn();
+
+            ImGui.TextWrapped($"最大耐久度");
+            if (ImGui.BeginListBox("###SpecialListDurability", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 80f.Scale())))
+            {
+                ImGui.Columns(2, null, false);
+                foreach (var dur in Durabilities)
+                {
+                    var val = dur.Value;
+                    if (ImGui.Checkbox($"{dur.Key}", ref val))
+                    {
+                        Durabilities[dur.Key] = val;
+                    }
+                    ImGui.NextColumn();
+                }
+                ImGui.EndListBox();
+
+                DurY = ImGui.GetCursorPosY();
+            }
+
+            ImGui.TextWrapped($"分级配方");
+            if (ImGui.BeginListBox("###CountsLog", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 20f.Scale())))
+            {
+                ImGui.Columns(2, null, false);
+                bool yes = countsToLog[1];
+                if (ImGui.Checkbox("是", ref yes))
+                {
+                    countsToLog[1] = yes;
+                }
+                ImGui.NextColumn();
+                bool no = countsToLog[2];
+                if (ImGui.Checkbox("否", ref no))
+                {
+                    countsToLog[2] = no;
+                }
+                
+                ImGui.EndListBox();
+            }
+
+
+            ImGui.TextWrapped($"可制作 HQ 的配方");
+            if (ImGui.BeginListBox("###HQRecipes", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 20f.Scale())))
+            {
+                ImGui.Columns(2, null, false);
+                bool yes = isHQAble[1];
+                if (ImGui.Checkbox("是", ref yes))
+                {
+                    isHQAble[1] = yes;
+                }
+                ImGui.NextColumn();
+                bool no = isHQAble[2];
+                if (ImGui.Checkbox("否", ref no))
+                {
+                    isHQAble[2] = no;
+                }
+
+                ImGui.EndListBox();
+            }
+
             ImGui.NextColumn();
             ImGui.TextWrapped("最低等级");
             ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X);
-            ImGui.SliderInt("###SpecialListMinLevel", ref minLevel, 1, 90);
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, ImGui.GetStyle().FramePadding with { Y = 5 });
+            ImGui.SliderInt("###SpecialListMinLevel", ref minLevel, 1, 100);
+            ImGui.PopStyleVar();
 
+            ImGui.TextWrapped($"\n");
             ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X);
-            ImGui.TextWrapped($"可解锁配方");
-            if (ImGui.BeginListBox("###UnlockableRecipe", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 32f.Scale())))
+            ImGui.TextWrapped($"秘籍中的配方");
+            if (ImGui.BeginListBox("###UnlockableRecipe", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 20f.Scale())))
             {
                 ImGui.Columns(2, null, false);
                 bool yes = hasToBeUnlocked[1];
@@ -106,12 +194,11 @@ namespace Artisan.CraftingLists
                 {
                     hasToBeUnlocked[2] = no;
                 }
-                ImGui.Columns(6, null, false);
                 ImGui.EndListBox();
             }
 
-            ImGui.TextWrapped($"任务配方");
-            if (ImGui.BeginListBox("###QuestRecipe", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 32f.Scale())))
+            ImGui.TextWrapped($"仅用于任务的配方");
+            if (ImGui.BeginListBox("###QuestRecipe", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 20f.Scale())))
             {
                 ImGui.Columns(2, null, false);
                 bool yes = questRecipe[1];
@@ -125,18 +212,29 @@ namespace Artisan.CraftingLists
                 {
                     questRecipe[2] = no;
                 }
-                ImGui.Columns(6, null, false);
                 ImGui.EndListBox();
             }
+
+
+            ImGui.TextWrapped($"名称包含");
+            ImGuiComponents.HelpMarker("支持正则表达式");
+            ImGuiEx.SetNextItemFullWidth();
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, ImGui.GetStyle().FramePadding with { Y = 5 });
+            ImGui.InputText($"###NameContains", ref Contains, 100);
+           
+            ImGui.PopStyleVar();
             ImGui.NextColumn();
 
             ImGui.TextWrapped("最大等级");
             ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X);
-            ImGui.SliderInt("###SpecialListMaxLevel", ref maxLevel, 1, 90);
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, ImGui.GetStyle().FramePadding with { Y = 5});
+            ImGui.SliderInt("###SpecialListMaxLevel", ref maxLevel, 1, 100);
+            ImGui.PopStyleVar();
 
+            ImGui.TextWrapped($"\n");
             ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X);
             ImGui.TextWrapped($"专家配方");
-            if (ImGui.BeginListBox("###ExpertRecipe", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 32f.Scale())))
+            if (ImGui.BeginListBox("###ExpertRecipe", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 20f.Scale())))
             {
                 ImGui.Columns(2, null, false);
                 bool yes = isExpert[1];
@@ -150,12 +248,11 @@ namespace Artisan.CraftingLists
                 {
                     isExpert[2] = no;
                 }
-                ImGui.Columns(6, null, false);
                 ImGui.EndListBox();
             }
 
-            ImGui.TextWrapped($"次级配方");
-            if (ImGui.BeginListBox("###SecondaryRecipes", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 32f.Scale())))
+            ImGui.TextWrapped($"次要配方");
+            if (ImGui.BeginListBox("###SecondaryRecipes", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 20f.Scale())))
             {
                 ImGui.Columns(2, null, false);
                 bool yes = isSecondary[1];
@@ -169,17 +266,19 @@ namespace Artisan.CraftingLists
                 {
                     isSecondary[2] = no;
                 }
-                ImGui.Columns(6, null, false);
                 ImGui.EndListBox();
             }
+
             ImGui.NextColumn();
 
             ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X);
-            ImGui.TextWrapped($"最低作业精度");
+            ImGui.TextWrapped($"最小作业精度");
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, ImGui.GetStyle().FramePadding with { Y = 5 });
             ImGui.SliderInt($"###MinCraftsmanship", ref minCraftsmanship, LuminaSheets.RecipeSheet.Values.Min(x => x.RequiredCraftsmanship), LuminaSheets.RecipeSheet.Values.Max(x => x.RequiredCraftsmanship));
+            ImGui.PopStyleVar();
 
-            ImGui.TextWrapped("结果数量");
-            if (ImGui.BeginListBox("###Yields", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 147f.Scale())))
+            ImGui.TextWrapped("产出数量");
+            if (ImGui.BeginListBox("###Yields", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 120f.Scale())))
             {
                 ImGui.Columns(2, null, false);
                 foreach (var yield in Yields)
@@ -193,14 +292,16 @@ namespace Artisan.CraftingLists
                 }
                 ImGui.EndListBox();
             }
-            ImGui.Columns(6, null, false);
+
             ImGui.NextColumn();
             ImGui.PushItemWidth(ImGui.GetContentRegionAvail().X);
-            ImGui.TextWrapped($"最低加工精度");
+            ImGui.TextWrapped($"最小加工精度");
+            ImGui.PushStyleVar(ImGuiStyleVar.FramePadding, ImGui.GetStyle().FramePadding with { Y = 5 });
             ImGui.SliderInt($"###MinControl", ref minControl, LuminaSheets.RecipeSheet.Values.Min(x => x.RequiredControl), LuminaSheets.RecipeSheet.Values.Max(x => x.RequiredControl));
+            ImGui.PopStyleVar();
 
-            ImGui.TextWrapped("难度星级");
-            if (ImGui.BeginListBox("###Stars", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 162f.Scale())))
+            ImGui.TextWrapped("星级难度");
+            if (ImGui.BeginListBox("###Stars", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 120f.Scale())))
             {
                 foreach (var star in Stars)
                 {
@@ -213,23 +314,26 @@ namespace Artisan.CraftingLists
                 ImGui.EndListBox();
             }
 
+            ImGui.NextColumn();
+            
+
             ImGui.Columns(1);
-            ImGui.SetCursorPosY(DurY);
+            //ImGui.SetCursorPosY(DurY + 10);
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 4);
-            ImGui.TextWrapped("基础属性");
+            ImGui.TextWrapped("状态参数");
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + 4);
-            if (ImGui.BeginListBox("###Stats", new System.Numerics.Vector2((ImGui.GetContentRegionAvail().X / 6) * 4, 120)))
+            if (ImGui.BeginListBox("###Stats", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 80f.Scale())))
             {
-                ImGui.Columns(5, null, false);
+                ImGui.Columns(6, null, false);
                 foreach (var stat in Stats)
                 {
                     var val = stat.Value;
-                    if (ImGui.Checkbox($"###{Svc.Data.GetExcelSheet<BaseParam>().First(x => x.RowId == stat.Key).Name.ExtractText()}", ref val))
+                    if (ImGui.Checkbox($"###{Svc.Data.GetExcelSheet<BaseParam>()?.First(x => x.RowId == stat.Key).Name.ExtractText()}", ref val))
                     {
                         Stats[stat.Key] = val;
                     }
                     ImGui.SameLine();
-                    ImGui.TextWrapped($"{Svc.Data.GetExcelSheet<BaseParam>().First(x => x.RowId == stat.Key).Name.ExtractText()}");
+                    ImGui.TextWrapped($"{Svc.Data.GetExcelSheet<BaseParam>()?.First(x => x.RowId == stat.Key).Name.ExtractText()}");
                     ImGui.NextColumn();
                 }
 
@@ -242,35 +346,42 @@ namespace Artisan.CraftingLists
             {
                 if (listName.IsNullOrWhitespace())
                 {
-                    Notify.Error("请命名你的清单。");
+                    Notify.Error("请给你的清单命名。");
                     return;
                 }
 
-                if (CreateList(false))
-                {
-                    Notify.Success($"清单：{listName}已创建。");
-                }
+                Notify.Info("正在创建你的清单，请稍后。");
+                Task.Run(() => CreateList(false)).ContinueWith(result => NotifySuccess(result));
             }
-            if (ImGui.Button("创建清单 (附带子配方)", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 0)))
+            if (ImGui.Button("创建清单（包含半成品）", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 0)))
             {
                 if (listName.IsNullOrWhitespace())
                 {
-                    Notify.Error("请命名你的清单。");
+                    Notify.Error("请给你的清单命名。");
                     return;
                 }
 
-                if (CreateList(true))
-                {
-                    Notify.Success($"清单：{listName}已创建。");
-                }
+                Notify.Info("正在创建你的清单，请稍后。");
+                Task.Run(() => CreateList(true)).ContinueWith(result => NotifySuccess(result));
             }
+        }
+
+        private static bool NotifySuccess(Task<bool> result)
+        {
+            if (result.Result)
+            {
+                Notify.Success($"清单：{listName} 已创建。");
+                return true;
+            }
+            return false;
         }
 
         private static bool CreateList(bool withSubcrafts)
         {
-            var craftingList = new CraftingList();
+            var craftingList = new NewCraftingList();
             craftingList.Name = listName;
             var recipes = new List<Recipe>();
+
             foreach (var job in JobSelected)
             {
                 if (job.Value)
@@ -313,6 +424,7 @@ namespace Artisan.CraftingLists
             recipes.RemoveAll(x => x.RequiredCraftsmanship < minCraftsmanship);
             recipes.RemoveAll(x => x.RequiredControl < minControl);
 
+
             if (Durabilities.Any(x => x.Value))
             {
                 foreach (var dur in Durabilities)
@@ -337,6 +449,42 @@ namespace Artisan.CraftingLists
                         else
                         {
                             recipes.RemoveAll(x => x.SecretRecipeBook.Row == 0);
+                        }
+                    }
+                }
+            }
+
+            if (alreadyCrafted.Any(x => x.Value))
+            {
+                foreach (var v in alreadyCrafted)
+                {
+                    if (!v.Value)
+                    {
+                        if (v.Key == 1)
+                        {
+                            recipes.RemoveAll(x => P.ri.HasRecipeCrafted(x.RowId));
+                        }
+                        else
+                        {
+                            recipes.RemoveAll(x => !P.ri.HasRecipeCrafted(x.RowId));
+                        }
+                    }
+                }
+            }
+
+            if (countsToLog.Any(x => x.Value))
+            {
+                foreach (var v in countsToLog)
+                {
+                    if (!v.Value)
+                    {
+                        if (v.Key == 1)
+                        {
+                            recipes.RemoveAll(x => x.RecipeNotebookList.Row < 1000);
+                        }
+                        else
+                        {
+                            recipes.RemoveAll(x => x.RecipeNotebookList.Row > 1000);
                         }
                     }
                 }
@@ -396,6 +544,42 @@ namespace Artisan.CraftingLists
                 }
             }
 
+            if (isCollectable.Any(x => x.Value))
+            {
+                foreach (var v in isCollectable)
+                {
+                    if (!v.Value)
+                    {
+                        if (v.Key == 1)
+                        {
+                            recipes.RemoveAll(x => x.ItemResult.Value.AlwaysCollectable);
+                        }
+                        if (v.Key == 2)
+                        {
+                            recipes.RemoveAll(x => !x.ItemResult.Value.AlwaysCollectable);
+                        }
+                    }
+                }
+            }
+
+            if (isHQAble.Any(x => x.Value))
+            {
+                foreach (var v in isHQAble)
+                {
+                    if (!v.Value)
+                    {
+                        if (v.Key == 1)
+                        {
+                            recipes.RemoveAll(x => x.CanHq);
+                        }
+                        if (v.Key == 2)
+                        {
+                            recipes.RemoveAll(x => !x.CanHq);
+                        }
+                    }
+                }
+            }
+
             if (Yields.Any(x => x.Value))
             {
                 foreach (var v in Yields)
@@ -418,9 +602,15 @@ namespace Artisan.CraftingLists
                 }
             }
 
+            if (!string.IsNullOrEmpty(Contains))
+            {
+                Regex regex = new Regex(Contains);
+                recipes.RemoveAll(x => !regex.IsMatch(x.ItemResult.Value.Name.RawString));
+            }
+
             if (recipes.Count == 0)
             {
-                Notify.Error("您指定的标准内没有任何匹配的物品。");
+                Notify.Error("没有物品满足你的清单要求。");
                 return false;
             }
 
@@ -428,8 +618,9 @@ namespace Artisan.CraftingLists
             {
                 foreach (var recipe in recipes.Distinct())
                 {
-                    craftingList.Items.Add(recipe.RowId);
+                    craftingList.Recipes.Add(new ListItem() { ID = recipe.RowId, Quantity = 1, ListItemOptions = new() });
                 }
+                CraftingListHelpers.TidyUpList(craftingList);
                 craftingList.SetID();
                 craftingList.Save(true);
             }
@@ -437,9 +628,18 @@ namespace Artisan.CraftingLists
             {
                 foreach (var recipe in recipes.Distinct())
                 {
+                    Svc.Log.Debug($"{recipe.RowId.NameOfRecipe()}");
                     CraftingListUI.AddAllSubcrafts(recipe, craftingList, 1);
-                    craftingList.Items.Add(recipe.RowId);
+                    if (craftingList.Recipes.Any(x => x.ID == recipe.RowId))
+                    {
+                        craftingList.Recipes.First(x => x.ID == recipe.RowId).Quantity++;
+                    }
+                    else
+                    {
+                        craftingList.Recipes.Add(new ListItem() { ID = recipe.RowId, Quantity = 1, ListItemOptions = new() });
+                    }
                 }
+                CraftingListHelpers.TidyUpList(craftingList);
                 craftingList.SetID();
                 craftingList.Save(true);
             }

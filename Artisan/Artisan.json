@@ -1,16 +1,16 @@
 {
   "Author": "Taurenkey (Puni.sh)",
   "Name": "Artisan",
-  "Punchline": "一个“简单”的制作插件。",
-  "Description": "多合一的制作插件。",
+  "Punchline": "一个“简单”的生产插件。",
+  "Description": "一体化生产插件。",
   "InternalName": "Artisan",
   "ApplicableVersion": "any",
   "IconUrl": "https://love.puni.sh/resources/artisan.png",
   "Tags": [
     "crafting"
   ],
-  "Changelog": "- Please visit the Discord for a full list of updates.",
+  "Changelog": "- IPC fixes.",
   "RepoUrl": "https://github.com/PunishXIV/Artisan",
-  "DalamudApiLevel": 8,
+  "DalamudApiLevel": 10,
   "DownloadLinkTesting": "https://love.puni.sh/plugins/Artisan/Testing/latest.zip"
 }
