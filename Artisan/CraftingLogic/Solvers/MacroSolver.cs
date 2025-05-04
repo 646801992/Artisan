@@ -1,5 +1,5 @@
 ﻿using Artisan.CraftingLists;
-using Artisan.RawInformation.Character;
+using SharpDX.DirectWrite;
 using System.Collections.Generic;
 using System.Linq;
 using Condition = Artisan.CraftingLogic.CraftData.Condition;
@@ -25,7 +25,7 @@ public class MacroSolverDefinition : ISolverDefinition
     public Solver Create(CraftState craft, int flavour) => new MacroSolver(P.Config.MacroSolverConfig.FindMacro(flavour) ?? new(), craft);
 }
 
-public class MacroSolver : Solver
+public class MacroSolver : Solver, ICraftValidator
 {
     private MacroSolverSettings.Macro _macro;
     private Solver? _fallback;
@@ -53,6 +53,27 @@ public class MacroSolver : Solver
             var s = _macro.Steps[_nextStep++];
             var action = s.Action;
 
+            if ((s.ExcludeNormal && step.Condition == Condition.Normal) ||
+                (s.ExcludeGood && step.Condition == Condition.Good) ||
+                (s.ExcludePoor && step.Condition == Condition.Poor) ||
+                (s.ExcludeExcellent && step.Condition == Condition.Excellent) ||
+                (s.ExcludeCentered && step.Condition == Condition.Centered) ||
+                (s.ExcludeSturdy && step.Condition == Condition.Sturdy) ||
+                (s.ExcludePliant && step.Condition == Condition.Pliant) ||
+                (s.ExcludeMalleable && step.Condition == Condition.Malleable) ||
+                (s.ExcludePrimed && step.Condition == Condition.Primed) ||
+                (s.ExcludeGoodOmen && step.Condition == Condition.GoodOmen))
+            {
+                if (s.ReplaceOnExclude)
+                {
+                    action = s.ReplacementAction;
+                }
+                else
+                {
+                    continue;
+                }
+            }
+
             if (_macro.Options.SkipQualityIfMet && step.Quality >= craft.CraftQualityMin3 && ActionIsQuality(action))
             {
                 continue;
@@ -68,23 +89,15 @@ public class MacroSolver : Solver
                 continue;
             }
 
-            if ((s.ExcludeNormal && step.Condition == Condition.通常) ||
-                (s.ExcludeGood && step.Condition == Condition.高品质) ||
-                (s.ExcludePoor && step.Condition == Condition.低品质) ||
-                (s.ExcludeExcellent && step.Condition == Condition.最高品质) ||
-                (s.ExcludeCentered && step.Condition == Condition.安定) ||
-                (s.ExcludeSturdy && step.Condition == Condition.结实) ||
-                (s.ExcludePliant && step.Condition == Condition.高效) ||
-                (s.ExcludeMalleable && step.Condition == Condition.大进展) ||
-                (s.ExcludePrimed && step.Condition == Condition.长持续) ||
-                (s.ExcludeGoodOmen && step.Condition == Condition.好兆头))
-            {
-                continue;
-            }
 
             if (action == Skills.TouchCombo)
             {
                 action = Simulator.NextTouchCombo(step, craft);
+            }
+
+            if (action == Skills.TouchComboRefined)
+            {
+                action = Simulator.NextTouchComboRefined(step, craft);
             }
 
             if (action == Skills.None)
@@ -115,8 +128,19 @@ public class MacroSolver : Solver
     }
 
     private static bool ActionIsQuality(Skills skill) => skill is Skills.BasicTouch or Skills.StandardTouch or Skills.AdvancedTouch or Skills.HastyTouch or Skills.PreparatoryTouch
-        or Skills.PreciseTouch or Skills.PrudentTouch or Skills.TrainedFinesse or Skills.ByregotsBlessing or Skills.GreatStrides or Skills.Innovation;
+        or Skills.PreciseTouch or Skills.PrudentTouch or Skills.TrainedFinesse or Skills.ByregotsBlessing or Skills.GreatStrides or Skills.Innovation or Skills.TouchCombo or Skills.TouchComboRefined;
 
     private static bool ActionIsUpgradeableQuality(Skills skill) => skill is Skills.HastyTouch or Skills.PreparatoryTouch or Skills.AdvancedTouch or Skills.StandardTouch or Skills.BasicTouch;
     private static bool ActionIsUpgradeableProgress(Skills skill) => skill is Skills.Groundwork or Skills.PrudentSynthesis or Skills.CarefulSynthesis or Skills.BasicSynthesis;
+
+    public bool Validate(CraftState craft)
+    {
+        if(_macro.Options.ExactCraftsmanship != 0)
+        {
+            return _macro.Options.ExactCraftsmanship == craft.StatCraftsmanship && _macro.Options.MinControl <= craft.StatControl && _macro.Options.MinCP <= craft.StatCP;
+        }
+
+
+        return _macro.Options.MinCraftsmanship <= craft.StatCraftsmanship && _macro.Options.MinControl <= craft.StatControl && _macro.Options.MinCP <= craft.StatCP;
+    }
 }

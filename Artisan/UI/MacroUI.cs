@@ -92,7 +92,7 @@ namespace Artisan.UI
                 else
                     ImGuiEx.CenterColumnText("生产宏编辑器选择");
 
-                if (ImGui.BeginChild("##selector", new Vector2(ImGui.GetContentRegionAvail().X, ImGui.GetContentRegionAvail().Y / 1.85f), true))
+                if (ImGui.BeginChild("##selector", new Vector2(ImGui.GetContentRegionAvail().X, ImGui.GetContentRegionAvail().Y), true))
                 {
                     for (int i = 0; i < P.Config.MacroSolverConfig.Macros.Count; i++)
                     {
@@ -120,30 +120,6 @@ namespace Artisan.UI
 
                 }
                 ImGui.EndChild();
-                ImGuiEx.CenterColumnText("快速宏分配器");
-                if (ImGui.BeginChild("###Assigner", new Vector2(ImGui.GetContentRegionAvail().X, ImGui.GetContentRegionAvail().Y), true))
-                {
-                    if (ImGui.BeginCombo($"{LuminaSheets.AddonSheet[405].Text.RawString.Replace("#", "").Replace("n°", "").Trim()}", selectedAssignMacro?.Name ?? ""))
-                    {
-                        if (ImGui.Selectable(""))
-                            selectedAssignMacro = null;
-
-                        foreach (var macro in P.Config.MacroSolverConfig.Macros)
-                        {
-                            if (ImGui.Selectable(macro.Name))
-                            {
-                                selectedAssignMacro = macro;
-                            }
-                        }
-                        ImGui.EndCombo();
-                    }
-
-                    if (selectedAssignMacro != null)
-                    {
-                        DrawAssignOptions(selectedAssignMacro);
-                    }
-                }
-                ImGui.EndChild();
             }
             else
             {
@@ -151,230 +127,26 @@ namespace Artisan.UI
             }
         }
 
-        private static void DrawAssignOptions(MacroSolverSettings.Macro macro)
-        {
-            IEnumerable<Lumina.Excel.GeneratedSheets.Recipe> filteredRecipes = LuminaSheets.RecipeSheet.Values;
-
-            if (ImGui.SliderInt($"{LuminaSheets.AddonSheet[335].Text}", ref quickAssignLevel, 1, 100))
-            {
-                quickAssignPossibleDifficulties.Clear();
-                quickAssignPossibleQualities.Clear();
-                quickAssignDurabilities.Clear();
-            }
-            filteredRecipes = filteredRecipes.Where(x => x.RecipeLevelTable.Value?.ClassJobLevel == quickAssignLevel);
-
-            if (quickAssignPossibleDifficulties.Count == 0)
-            {
-                foreach (var recipe in filteredRecipes)
-                {
-                    var actualDiff = Calculations.RecipeDifficulty(recipe);
-                    if (actualDiff != 0)
-                        quickAssignPossibleDifficulties.Add(actualDiff);
-                }
-                quickAssignPossibleDifficulties.SortAndRemoveDuplicates();
-            }
-            quickAssignDifficulty = quickAssignPossibleDifficulties.FindClosest(quickAssignDifficulty);
-            if (ImGui.SliderInt($"{LuminaSheets.AddonSheet[1431].Text}###RecipeDiff", ref quickAssignDifficulty, quickAssignMinDifficulty, quickAssignMaxDifficulty))
-            {
-                quickAssignPossibleQualities.Clear();
-                quickAssignDurabilities.Clear();
-            }
-            filteredRecipes = filteredRecipes.Where(x => Calculations.RecipeDifficulty(x) == quickAssignDifficulty);
-
-            if (quickAssignPossibleQualities.Count == 0)
-            {
-                foreach (var recipe in filteredRecipes)
-                {
-                    var actualQual = Calculations.RecipeMaxQuality(recipe);
-                    if (actualQual != 0)
-                        quickAssignPossibleQualities.Add(actualQual);
-                }
-                quickAssignPossibleQualities.SortAndRemoveDuplicates();
-            }
-
-            if (quickAssignPossibleQualities.Any())
-            {
-                quickAssignQuality = quickAssignPossibleQualities.FindClosest(quickAssignQuality);
-                if (ImGui.SliderInt($"{LuminaSheets.AddonSheet[216].Text}###RecipeQuality", ref quickAssignQuality, quickAssignMinQuality, quickAssignMaxQuality))
-                {
-                    quickAssignDurabilities.Clear();
-                }
-
-                filteredRecipes = filteredRecipes.Where(x => Calculations.RecipeMaxQuality(x) == quickAssignQuality);
-
-                if (ImGui.BeginListBox($"{LuminaSheets.AddonSheet[5400].Text}###AssignJobBox", new Vector2(0, 100)))
-                {
-                    ImGui.Columns(4, null, false);
-                    for (var job = Job.CRP; job <= Job.CUL; ++job)
-                    {
-                        ImGui.Checkbox(job.ToString(), ref quickAssignJobs[job - Job.CRP]);
-                        ImGui.NextColumn();
-                    }
-                    ImGui.EndListBox();
-                }
-                filteredRecipes = filteredRecipes.Where(x => quickAssignJobs[x.CraftType.Row]);
-
-                if (filteredRecipes.Any())
-                {
-                    if (ImGui.BeginListBox($"{LuminaSheets.AddonSheet[1430].Text}###AssignDurabilities", new Vector2(0, 55)))
-                    {
-                        ImGui.Columns(4, null, false);
-
-                        foreach (var recipe in filteredRecipes)
-                        {
-                            quickAssignDurabilities.TryAdd(Calculations.RecipeDurability(recipe), false);
-                        }
-
-                        foreach (var dur in quickAssignDurabilities)
-                        {
-                            var val = dur.Value;
-                            if (ImGui.Checkbox($"{dur.Key}", ref val))
-                            {
-                                quickAssignDurabilities[dur.Key] = val;
-                            }
-                            ImGui.NextColumn();
-                        }
-
-                        if (quickAssignDurabilities.Count == 1)
-                        {
-                            var key = quickAssignDurabilities.First().Key;
-                            quickAssignDurabilities[key] = true;
-                        }
-                        ImGui.EndListBox();
-                    }
-                    filteredRecipes = filteredRecipes.Where(x => quickAssignDurabilities[Calculations.RecipeDurability(x)]);
-
-                    if (ImGui.BeginListBox($"{LuminaSheets.AddonSheet[1419].Text}###HQable", new Vector2(0, 28f)))
-                    {
-                        var anyHQ = filteredRecipes.Any(recipe => recipe.CanHq);
-                        var anyNonHQ = filteredRecipes.Any(recipe => !recipe.CanHq);
-
-                        ImGui.Columns(2, null, false);
-                        if (anyNonHQ)
-                        {
-                            if (!anyHQ)
-                                quickAssignCannotHQ = true;
-
-                            if (ImGui.RadioButton($"{LuminaSheets.AddonSheet[3].Text.RawString.Replace(".", "")}", quickAssignCannotHQ))
-                            {
-                                quickAssignCannotHQ = true;
-                            }
-                        }
-                        ImGui.NextColumn();
-                        if (anyHQ)
-                        {
-                            if (!anyNonHQ)
-                                quickAssignCannotHQ = false;
-
-                            if (ImGui.RadioButton($"{LuminaSheets.AddonSheet[4].Text.RawString.Replace(".", "")}", !quickAssignCannotHQ))
-                            {
-                                quickAssignCannotHQ = false;
-                            }
-                        }
-                        ImGui.Columns(1, null, false);
-                        ImGui.EndListBox();
-                    }
-                    filteredRecipes = filteredRecipes.Where(x => x.CanHq != quickAssignCannotHQ);
-
-                    if (ImGui.Checkbox($"显示所有分配给的配方", ref P.Config.ShowMacroAssignResults))
-                        P.Config.Save();
-
-                    if (ImGui.Button($"为配方指定生产宏", new Vector2(ImGui.GetContentRegionAvail().X / 2, 24f.Scale())))
-                    {
-                        int numberFound = 0;
-                        foreach (var recipe in filteredRecipes)
-                        {
-                            var config = P.Config.RecipeConfigs.GetValueOrDefault(recipe.RowId);
-                            if (config == null)
-                                P.Config.RecipeConfigs[recipe.RowId] = config = new();
-                            config.SolverType = typeof(MacroSolverDefinition).FullName!;
-                            config.SolverFlavour = selectedAssignMacro.ID;
-                            if (P.Config.ShowMacroAssignResults)
-                            {
-                                P.TM.DelayNext(400);
-                                P.TM.Enqueue(() => Notify.Info($"生产宏已指定给 {recipe.ItemResult.Value.Name.RawString}。"));
-                            }
-                            numberFound++;
-                        }
-
-                        if (numberFound > 0)
-                        {
-                            Notify.Success($"生产宏已分配给 {numberFound} 个配方。");
-                            P.Config.Save();
-                        }
-                        else
-                        {
-                            Notify.Error("没有符合你参数的配方。没有指定生产宏。");
-                        }
-                    }
-                    ImGui.SameLine();
-                }
-            }
-            if (ImGui.Button($"取消所有配方中的生产宏分配 (按住 Ctrl)", new Vector2(ImGui.GetContentRegionAvail().X, 24f.Scale())) && ImGui.GetIO().KeyCtrl)
-            {
-                int count = 0;
-                foreach (var e in P.Config.RecipeConfigs)
-                    if (e.Value.SolverType == typeof(MacroSolverDefinition).FullName && e.Value.SolverFlavour == selectedAssignMacro.ID)
-                    {
-                        P.Config.RecipeConfigs.Remove(e.Key); // TODO: do we want to preserve other configs?..
-                        count++;
-                    }
-                P.Config.Save();
-                if (count > 0)
-                    Notify.Success($"从 {count} 个配方中移除。");
-                else
-                    Notify.Error($"此生产宏未分配给任何配方。");
-            }
-        }
-
-        private static void SortAndRemoveDuplicates(this List<int> list)
-        {
-            if (list.Count == 0)
-                return;
-            list.Sort();
-            int dest = 1;
-            int prev = list[0];
-            for (int src = 1; src < list.Count; ++src)
-                if (list[src] != prev)
-                    list[dest++] = list[src];
-            list.RemoveRange(dest, list.Count - dest);
-        }
-
-        public static int UpperBound(this List<int> list, int test)
-        {
-            int first = 0, size = list.Count;
-            while (size > 0)
-            {
-                int step = size / 2;
-                int mid = first + step;
-                if (list[mid] <= test)
-                {
-                    first = mid + 1;
-                    size -= step + 1;
-                }
-                else
-                {
-                    size = step;
-                }
-            }
-            return first;
-        }
-
-        public static int FindClosest(this List<int> list, int test)
-        {
-            var ub = list.UpperBound(test);
-            return ub == 0 ? list[0] : ub == list.Count ? list[list.Count - 1] : test - list[ub - 1] < list[ub] - test ? list[ub - 1] : list[ub];
-        }
-
-        private static int GetCPCost(MacroSolverSettings.Macro m)
+        public static int GetCPCost(MacroSolverSettings.Macro m)
         {
             Skills previousAction = Skills.None;
             int output = 0;
+            int tcr = 0;
             foreach (var step in m.Steps)
             {
                 if (step.Action == Skills.TouchCombo)
                 {
                     output += 18;
+                }
+                if (step.Action == Skills.TouchComboRefined)
+                {
+                    if (tcr % 2 == 1)
+                        output += 18;
+                    else
+                        output += 24;
+
+                    tcr++;
+
                 }
                 output += Simulator.GetBaseCPCost(step.Action, previousAction);
                 previousAction = step.Action;
@@ -447,7 +219,7 @@ namespace Artisan.UI
                         case MacroNameUse.FromClipboard:
                             try
                             {
-                                var steps = ParseMacro(ImGui.GetClipboardText());
+                                var steps = ParseMacro(ImGui.GetClipboardText(), false);
                                 if (steps.Count > 0)
                                 {
                                     var macro = new MacroSolverSettings.Macro();
@@ -478,7 +250,7 @@ namespace Artisan.UI
             }
         }
 
-        public static List<MacroSolverSettings.MacroStep> ParseMacro(string text)
+        public static List<MacroSolverSettings.MacroStep> ParseMacro(string text, bool raphParseEN = false)
         {
             var res = new List<MacroSolverSettings.MacroStep>();
             if (string.IsNullOrWhiteSpace(text))
@@ -517,11 +289,15 @@ namespace Artisan.UI
                         continue;
                     }
 
-                    var act = Enum.GetValues(typeof(Skills)).Cast<Skills>().FirstOrDefault(s => s.NameOfAction().Equals(action, StringComparison.CurrentCultureIgnoreCase));
+                    var act = Enum.GetValues(typeof(Skills)).Cast<Skills>().FirstOrDefault(s => s.NameOfAction(raphParseEN).Equals(action, StringComparison.CurrentCultureIgnoreCase));
                     if (act == default)
                     {
-                        DuoLog.Error($"无法解析操作: {action}");
-                        continue;
+                        act = Enum.GetValues(typeof(Skills)).Cast<Skills>().FirstOrDefault(s => s.NameOfAction(raphParseEN).Replace(" ", "").Replace("'", "").Equals(action, StringComparison.CurrentCultureIgnoreCase));
+                        if (act == default)
+                        {
+                            DuoLog.Error($"无法解析操作: {action}");
+                            continue;
+                        }
                     }
                     res.Add(new() { Action = act });
                 }

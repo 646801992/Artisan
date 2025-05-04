@@ -8,16 +8,16 @@ using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
-using Dalamud.Utility;
 using ECommons;
 using ECommons.DalamudServices;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
+using Lumina.Excel.Sheets;
 using PunishLib.ImGuiMethods;
 using System;
 using System.IO;
+using System.Linq;
 using System.Numerics;
-using System.Windows.Forms;
 using ThreadLoadImageHandler = ECommons.ImGuiMethods.ThreadLoadImageHandler;
 
 namespace Artisan.UI
@@ -89,10 +89,18 @@ namespace Artisan.UI
         {
             if (DalamudInfo.IsOnStaging())
             {
-                ImGui.Text($"Artisan 不适用于非 release 版本的 Dalamud。请在聊天框中输入 /xlbranch，然后选择 'release'，并点击 'Pick & Restart'以重启并切换到 release 版本");
-                return;
-            }
+                var scale = ImGui.GetIO().FontGlobalScale;
+                ImGui.GetIO().FontGlobalScale = scale * 1.5f;
+                using (var f = ImRaii.PushFont(ImGui.GetFont()))
+                {
+                    ImGuiEx.TextWrapped($"Artisan 不适用于非 release 版本的 Dalamud。请在聊天框中输入 /xlbranch，然后选择 'release'，并点击 'Pick & Restart'以重启并切换到 release 版本");
+                    ImGui.Separator();
 
+                    ImGui.Spacing();
+                    ImGui.GetIO().FontGlobalScale = scale;
+                }
+
+            }
             var region = ImGui.GetContentRegionAvail();
             var itemSpacing = ImGui.GetStyle().ItemSpacing;
 
@@ -155,7 +163,17 @@ namespace Artisan.UI
                             OpenWindow = OpenWindow.Macro;
                         }
                         ImGui.Spacing();
-                        if (ImGui.Selectable("制作清单", OpenWindow == OpenWindow.Lists))
+                        if (ImGui.Selectable("Raphael Cache", OpenWindow == OpenWindow.RaphaelCache))
+                        {
+                            OpenWindow = OpenWindow.RaphaelCache;
+                        }
+                        ImGui.Spacing();
+                        if (ImGui.Selectable("Recipe Assigner", OpenWindow == OpenWindow.Assigner))
+                        {
+                            OpenWindow = OpenWindow.Assigner;
+                        }
+                        ImGui.Spacing();
+                        if (ImGui.Selectable("Crafting Lists", OpenWindow == OpenWindow.Lists))
                         {
                             OpenWindow = OpenWindow.Lists;
                         }
@@ -216,6 +234,12 @@ namespace Artisan.UI
                             case OpenWindow.Macro:
                                 MacroUI.Draw();
                                 break;
+                            case OpenWindow.RaphaelCache:
+                                RaphaelCacheUI.Draw();
+                                break;
+                            case OpenWindow.Assigner:
+                                AssignerUI.Draw();
+                                break;
                             case OpenWindow.FCWorkshop:
                                 FCWorkshopUI.Draw();
                                 break;
@@ -232,7 +256,8 @@ namespace Artisan.UI
                                 break;
                             default:
                                 break;
-                        };
+                        }
+                        ;
                     }
                 }
             }
@@ -579,6 +604,16 @@ namespace Artisan.UI
                     if (ImGui.SliderFloat("音量", ref P.Config.SoundVolume, 0f, 1f, "%.2f"))
                         P.Config.Save();
                 }
+
+                if (ImGuiEx.ButtonCtrl("Reset Cosmic Exploration Crafting Configs"))
+                {
+                    var copy = P.Config.RecipeConfigs;
+                    foreach (var c in copy)
+                    {
+                        if (Svc.Data.GetExcelSheet<Recipe>().GetRow(c.Key).Number == 0)
+                            P.Config.RecipeConfigs.Remove(c.Key);
+                    }
+                }
             }
             if (ImGui.CollapsingHeader("生产宏设置"))
             {
@@ -590,18 +625,18 @@ namespace Artisan.UI
             }
             if (ImGui.CollapsingHeader("标准配方求解器设置"))
             {
-                if (ImGui.Checkbox($"使用 {Skills.TricksOfTrade.NameOfAction()} - {LuminaSheets.AddonSheet[227].Text.RawString}", ref useTricksGood))
+                if (ImGui.Checkbox($"使用 {Skills.TricksOfTrade.NameOfAction()} - {LuminaSheets.AddonSheet[227].Text.ToString()}", ref useTricksGood))
                 {
                     P.Config.UseTricksGood = useTricksGood;
                     P.Config.Save();
                 }
                 ImGui.SameLine();
-                if (ImGui.Checkbox($"使用 {Skills.TricksOfTrade.NameOfAction()} - {LuminaSheets.AddonSheet[228].Text.RawString}", ref useTricksExcellent))
+                if (ImGui.Checkbox($"使用 {Skills.TricksOfTrade.NameOfAction()} - {LuminaSheets.AddonSheet[228].Text.ToString()}", ref useTricksExcellent))
                 {
                     P.Config.UseTricksExcellent = useTricksExcellent;
                     P.Config.Save();
                 }
-                ImGuiComponents.HelpMarker($"这两个选项允许你在条件为 {LuminaSheets.AddonSheet[227].Text.RawString} 或 {LuminaSheets.AddonSheet[228].Text.RawString} 时优先使用 {Skills.TricksOfTrade.NameOfAction()} 。\n\n这将取代 {Skills.PreciseTouch.NameOfAction()} 和 {Skills.IntensiveSynthesis.NameOfAction()} 的使用。\n\n无论设置如何，{Skills.TricksOfTrade.NameOfAction()} 仍然会在学习这些技能之前或在某些情况下使用。");
+                ImGuiComponents.HelpMarker($"这两个选项允许你在条件为 {LuminaSheets.AddonSheet[227].Text.ToString()} 或 {LuminaSheets.AddonSheet[228].Text.ToString()} 时优先使用{Skills.TricksOfTrade.NameOfAction()} 。\n\n这将取代 {Skills.PreciseTouch.NameOfAction()} 和 {Skills.IntensiveSynthesis.NameOfAction()} 的使用.\n\n无论设置如何，{Skills.TricksOfTrade.NameOfAction()} 仍然会在学习这些技能之前或在某些情况下使用。");
                 if (ImGui.Checkbox("使用专家技能", ref useSpecialist))
                 {
                     P.Config.UseSpecialist = useSpecialist;
@@ -652,6 +687,19 @@ namespace Artisan.UI
                 if (ImGui.SliderInt($"###MaxIQStacksPrepTouch", ref P.Config.MaxIQPrepTouch, 0, 10))
                     P.Config.Save();
 
+                if (ImGui.Checkbox($"Use Material Miracle when available", ref P.Config.UseMaterialMiracle))
+                    P.Config.Save();
+
+                ImGuiComponents.HelpMarker($"This will switch the Standard Recipe Solver over to the Expert Solver for the duration of the buff. This will not give you proper simulator results as it's a timed buff, not a permanent one with stacks, so we can't really simulate it properly.");
+
+                if (P.Config.UseMaterialMiracle)
+                {
+                    ImGui.Indent();
+                    if (ImGui.Checkbox($"Use more than once per craft.", ref P.Config.MaterialMiracleMulti))
+                        P.Config.Save();
+
+                    ImGui.Unindent();
+                }
 
             }
             bool openExpert = false;
@@ -674,10 +722,20 @@ namespace Artisan.UI
                     ImGui.Image(P.Config.ExpertSolverConfig.expertIcon.ImGuiHandle, new(P.Config.ExpertSolverConfig.expertIcon.Width * ImGuiHelpers.GlobalScaleSafe, ImGui.GetItemRectSize().Y), new(0, 0), new(1, 1), new(0.94f, 0.57f, 0f, 1f));
                 }
             }
+
             if (ImGui.CollapsingHeader("脚本求解器设置"))
             {
-                if (P.Config.ScriptSolverConfig.Draw())
+                if (P.Config.RaphaelSolverConfig.Draw())
                     P.Config.Save();
+            }
+
+            using (ImRaii.Disabled())
+            {
+                if (ImGui.CollapsingHeader("Script Solver Settings (Currently Disabled)"))
+                {
+                    if (P.Config.ScriptSolverConfig.Draw())
+                        P.Config.Save();
+                }
             }
             if (ImGui.CollapsingHeader("UI 设置"))
             {
@@ -739,7 +797,7 @@ namespace Artisan.UI
 
                 if (IconButtons.IconTextButton(FontAwesomeIcon.Clipboard, "复制主题"))
                 {
-                    Clipboard.SetText("DS1H4sIAAAAAAAACq1YS3PbNhD+Kx2ePR6AeJG+xXYbH+KOJ3bHbW60REusaFGlKOXhyX/v4rEACEqumlY+ECD32/cuFn7NquyCnpOz7Cm7eM1+zy5yvfnDPL+fZTP4at7MHVntyMi5MGTwBLJn+HqWLZB46Ygbx64C5kQv/nRo8xXQ3AhZZRdCv2jdhxdHxUeqrJO3Ftslb5l5u/Fa2rfEvP0LWBkBPQiSerF1Cg7wApBn2c5wOMv2juNn9/zieH09aP63g+Kqyr1mI91mHdj5mj3UX4bEG+b5yT0fzRPoNeF1s62e2np+EuCxWc+7z5cLr1SuuCBlkTvdqBCEKmaQxCHJeZmXnFKlgMHVsmnnEZ5IyXMiFUfjwt6yCHvDSitx1212m4gHV0QURY4saMEYl6Q4rsRl18/rPuCZQ+rFJxeARwyAJb5fVmD4NBaJEK3eL331UscuAgflOcY0J5zLUioHpHmhCC0lCuSBwU23r3sfF/0N0wKdoxcGFqHezYZmHypJIkgiSCJIalc8NEM7Utb6ErWlwngt9aUoFRWSB3wilRUl5SRwISUFvhJt9lvDrMgLIjgLzK66tq0228j0H+R3W693l1UfmUd9kqA79MKn9/2sB9lPI8hbofb073vdh1BbQYRgqKzfGbTfTWVqHmnMOcXUpI6BXhzGJjEQCNULmy4x9GpZz1a3Vb8KqaIDz4RPVGZin6dlZPKDSS29baAyRqYfzVGnr0ekaaowTbEw9MLjLnfD0GGT1unHSSlKr2lRyqLA2qU5ESovi6m+lkvqYiZ1/ygxyqrgjDKF8Yr2lp1pd4R7dokhvOBUQk37TCVKQbX4TMVtyuymruKWJCURVEofClYWbNpWCQfFifDwsWnYyXXS8ZxDOI+H0uLToPzrhKg3VV8N3amt1dP/t5goW/E85pg2pB8N8sd623yr3/dNOPYVstELg9cLA8zFCJKapQpEYkPVi9CMA/L/Uv8hrk1hmg9WKKMQXyIxnGFrm6i06MkhBHlIiQ8rI0xx4k/rsLWBsWpbTmmhqFIypcvUHTRgQ859V/bbKaPf1s/dbBcfD0R6NnCWwg/dS3lB4MfQMSrnCY9EK8qEw9uUl4YdHjRQRVFTuu5mq2a9uOvrfVOH0SDHqtXxMjDfi1RA/fyyGb7G5y5KdJg8EnTXdsOHZl1vQyJJQrlCQTDsEBi80HdhO+VwrEP48hwdTRp202yHbgGzhRfu03/UCA4gjglDd44mUT2D2i4UH9coSy8mfjEYN54NfbcOOIZnn15M7YqAH5rFEmdl3eJ8r0N5E9zH0fz71nQQyN+1/zSP6yR2A/l93dazoY6n5DdyiumWc91Xi+u+2zxU/aI+Jipq2QD5tdrfgO3t2P5jcqz9gLEXAEjgFHzcMJUgr5uXyDQsNSxZtCvX81s3r1qLOw0EztC3ORiEs4vssu9W9fqn2263HqpmncFF016PqklGjh1kjQ2NUyUJH08mcIk9gSrqn+jg0XFoqeqTrmDPwQv+PDEr6wl3oljaxcRSRTCyMc/lJJ/lAcnNhMr3WWZ+ES3exrXE+HJ2yNOrowkb97A2cExdXcrYjaFToVDfGSMqnCaDa0pi/vzNMyLG/wQEyzmzfhx7KAwJUn93Fz6v5shD8B+DRAG4Oh+QHYapovAd3/OEQzuiDSdE4c8wjJHh7iiBFFozvP3+NxT8RWGlEQAA");
+                    ImGui.SetClipboardText("DS1H4sIAAAAAAAACq1YS3PbNhD+Kx2ePR6AeJG+xXYbH+KOJ3bHbW60REusaFGlKOXhyX/v4rEACEqumlY+ECD32/cuFn7NquyCnpOz7Cm7eM1+zy5yvfnDPL+fZTP4at7MHVntyMi5MGTwBLJn+HqWLZB46Ygbx64C5kQv/nRo8xXQ3AhZZRdCv2jdhxdHxUeqrJO3Ftslb5l5u/Fa2rfEvP0LWBkBPQiSerF1Cg7wApBn2c5wOMv2juNn9/zieH09aP63g+Kqyr1mI91mHdj5mj3UX4bEG+b5yT0fzRPoNeF1s62e2np+EuCxWc+7z5cLr1SuuCBlkTvdqBCEKmaQxCHJeZmXnFKlgMHVsmnnEZ5IyXMiFUfjwt6yCHvDSitx1212m4gHV0QURY4saMEYl6Q4rsRl18/rPuCZQ+rFJxeARwyAJb5fVmD4NBaJEK3eL331UscuAgflOcY0J5zLUioHpHmhCC0lCuSBwU23r3sfF/0N0wKdoxcGFqHezYZmHypJIkgiSCJIalc8NEM7Utb6ErWlwngt9aUoFRWSB3wilRUl5SRwISUFvhJt9lvDrMgLIjgLzK66tq0228j0H+R3W693l1UfmUd9kqA79MKn9/2sB9lPI8hbofb073vdh1BbQYRgqKzfGbTfTWVqHmnMOcXUpI6BXhzGJjEQCNULmy4x9GpZz1a3Vb8KqaIDz4RPVGZin6dlZPKDSS29baAyRqYfzVGnr0ekaaowTbEw9MLjLnfD0GGT1unHSSlKr2lRyqLA2qU5ESovi6m+lkvqYiZ1/ygxyqrgjDKF8Yr2lp1pd4R7dokhvOBUQk37TCVKQbX4TMVtyuymruKWJCURVEofClYWbNpWCQfFifDwsWnYyXXS8ZxDOI+H0uLToPzrhKg3VV8N3amt1dP/t5goW/E85pg2pB8N8sd623yr3/dNOPYVstELg9cLA8zFCJKapQpEYkPVi9CMA/L/Uv8hrk1hmg9WKKMQXyIxnGFrm6i06MkhBHlIiQ8rI0xx4k/rsLWBsWpbTmmhqFIypcvUHTRgQ859V/bbKaPf1s/dbBcfD0R6NnCWwg/dS3lB4MfQMSrnCY9EK8qEw9uUl4YdHjRQRVFTuu5mq2a9uOvrfVOH0SDHqtXxMjDfi1RA/fyyGb7G5y5KdJg8EnTXdsOHZl1vQyJJQrlCQTDsEBi80HdhO+VwrEP48hwdTRp202yHbgGzhRfu03/UCA4gjglDd44mUT2D2i4UH9coSy8mfjEYN54NfbcOOIZnn15M7YqAH5rFEmdl3eJ8r0N5E9zH0fz71nQQyN+1/zSP6yR2A/l93dazoY6n5DdyiumWc91Xi+u+2zxU/aI+Jipq2QD5tdrfgO3t2P5jcqz9gLEXAEjgFHzcMJUgr5uXyDQsNSxZtCvX81s3r1qLOw0EztC3ORiEs4vssu9W9fqn2263HqpmncFF016PqklGjh1kjQ2NUyUJH08mcIk9gSrqn+jg0XFoqeqTrmDPwQv+PDEr6wl3oljaxcRSRTCyMc/lJJ/lAcnNhMr3WWZ+ES3exrXE+HJ2yNOrowkb97A2cExdXcrYjaFToVDfGSMqnCaDa0pi/vzNMyLG/wQEyzmzfhx7KAwJUn93Fz6v5shD8B+DRAG4Oh+QHYapovAd3/OEQzuiDSdE4c8wjJHh7iiBFFozvP3+NxT8RWGlEQAA");
                     Notify.Success("主题已复制到剪贴板");
                 }
 
@@ -820,10 +878,10 @@ namespace Artisan.UI
                 }
 
                 ImGui.PushItemWidth(400);
-                if (ImGui.SliderFloat("每次制作间的延迟", ref P.Config.ListCraftThrottle2, 0.2f, 2f, "%.1f"))
+                if (ImGui.SliderFloat("每次制作间的延迟", ref P.Config.ListCraftThrottle2, 0f, 2f, "%.1f"))
                 {
-                    if (P.Config.ListCraftThrottle2 < 0.2f)
-                        P.Config.ListCraftThrottle2 = 0.2f;
+                    if (P.Config.ListCraftThrottle2 < 0f)
+                        P.Config.ListCraftThrottle2 = 0f;
 
                     if (P.Config.ListCraftThrottle2 > 2f)
                         P.Config.ListCraftThrottle2 = 2f;
@@ -916,7 +974,7 @@ namespace Artisan.UI
                 {
                     ImGuiEx.ImGuiLineCentered("###EnduranceNewSetting", () =>
                     {
-                        ImGui.Image(img.ImGuiHandle, new Vector2(img.Width,img.Height));
+                        ImGui.Image(img.ImGuiHandle, new Vector2(img.Width, img.Height));
                     });
                 }
 
@@ -946,5 +1004,7 @@ namespace Artisan.UI
         SpecialList = 8,
         Overview = 9,
         Simulator = 10,
+        RaphaelCache = 11,
+        Assigner = 12,
     }
 }

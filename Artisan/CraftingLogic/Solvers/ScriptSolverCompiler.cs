@@ -25,10 +25,10 @@ public class ScriptSolverCompiler : IDisposable
 
     public ScriptSolverCompiler()
     {
-        _compilerThread = new(ThreadProc);
-        _compilerThread.Name = "Artisan 脚本编译器";
-        // note that we can only start compilation after plugin is fully constructed
-        Svc.Framework.RunOnTick(_compilerThread.Start);
+        //_compilerThread = new(ThreadProc);
+        //_compilerThread.Name = "Artisan 脚本编译器";
+        //// note that we can only start compilation after plugin is fully constructed
+        //Svc.Framework.RunOnTick(_compilerThread.Start);
     }
 
     public void Dispose()
@@ -112,7 +112,7 @@ public class ScriptSolverCompiler : IDisposable
 
     private Assembly Load(byte[] assembly)
     {
-        if (DalamudReflector.TryGetLocalPlugin(out var instance, out var type))
+        if (DalamudReflector.TryGetLocalPlugin(out var instance, out var _, out var type))
         {
             var loader = type.GetField("loader", ReflectionHelper.AllFlags).GetValue(instance);
             var context = loader.GetFoP<AssemblyLoadContext>("context");

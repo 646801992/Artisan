@@ -7,9 +7,9 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Game.Text;
 using ECommons.DalamudServices;
 using ECommons.Logging;
-using Lumina.Excel.GeneratedSheets;
 using Dalamud.Game.Text.SeStringHandling;
 using System.Linq;
+using Lumina.Excel.Sheets;
 
 namespace Artisan.Autocraft
 {
@@ -30,11 +30,11 @@ namespace Artisan.Autocraft
                 if (message.Payloads.Any(x => x.Type == PayloadType.Item))
                 {
                     var item = (ItemPayload)message.Payloads.First(x => x.Type == PayloadType.Item);
-                    if (item.Item.CanBeHq)
+                    if (Svc.Data.Excel.GetSheet<Item>().GetRow(item.Item.RowId).CanBeHq)
                     {
                         if (Endurance.Enable && P.Config.EnduranceStopNQ && !item.IsHQ)
                         {
-                            Endurance.Enable = false;
+                            Endurance.ToggleEndurance(false);
                             Svc.Toasts.ShowError("你制作了一个非 HQ 物品，正在禁用续航模式。");
                             DuoLog.Error("你制作了一个非 HQ 物品，正在禁用续航模式。");
                         }
@@ -72,13 +72,13 @@ namespace Artisan.Autocraft
             {
                 if (cancelled)
                 {
-                    Endurance.Enable = false;
+                    Endurance.ToggleEndurance(false);
                     Svc.Toasts.ShowError("你取消了一个制作，正在禁用续航模式。");
                     DuoLog.Error("你取消了一个制作，正在禁用续航模式。");
                 }
                 else if (finalStep.Progress < craft.CraftProgress && P.Config.EnduranceStopFail)
                 {
-                    Endurance.Enable = false;
+                    Endurance.ToggleEndurance(false);
                     Svc.Toasts.ShowError("你生产失败了一个制作，正在禁用续航模式。");
                     DuoLog.Error("你生产失败了一个制作，正在禁用续航模式。");
                 }
@@ -88,7 +88,7 @@ namespace Artisan.Autocraft
                     if (P.Config.CraftX == 0)
                     {
                         P.Config.CraftingX = false;
-                        Endurance.Enable = false;
+                        Endurance.ToggleEndurance(false);
                         if (P.Config.PlaySoundFinishEndurance)
                             SoundPlayer.PlaySound();
                         DuoLog.Information("制作 X 次已完成。");

@@ -7,18 +7,20 @@ using Dalamud.Configuration;
 using ECommons.DalamudServices;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Artisan
 {
     [Serializable]
     public class Configuration : IPluginConfiguration
     {
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = 2;
         public bool AutoMode
         {
-            get => autoMode; 
+            get => autoMode;
             set
             {
                 if (value)
@@ -32,6 +34,8 @@ namespace Artisan
         public int MaxPercentage = 100;
         public bool UseTricksGood = false;
         public int MaxIQPrepTouch = 10;
+        public bool UseMaterialMiracle = false;
+        public bool MaterialMiracleMulti;
         public bool LowStatsMode = false;
         public bool UseTricksExcellent = false;
         public bool UseSpecialist = false;
@@ -40,9 +44,9 @@ namespace Artisan
         public bool UseSimulatedStartingQuality = false;
         public bool DisableHighlightedAction = false;
 
-        public CraftingLogic.Solvers.ExpertSolverSettings ExpertSolverConfig = new();
-        public CraftingLogic.Solvers.MacroSolverSettings MacroSolverConfig = new();
-        public CraftingLogic.Solvers.ScriptSolverSettings ScriptSolverConfig = new();
+        public ExpertSolverSettings ExpertSolverConfig = new();
+        public MacroSolverSettings MacroSolverConfig = new();
+        public ScriptSolverSettings ScriptSolverConfig = new();
 
         public Dictionary<uint, RecipeConfig> RecipeConfigs = new();
 
@@ -90,7 +94,7 @@ namespace Artisan
 
         public float SoundVolume = 0.25f;
 
-        public bool DefaultListMateria = false;   
+        public bool DefaultListMateria = false;
         public bool DefaultListSkip = false;
         public bool DefaultListSkipLiteral = false;
         public bool DefaultListRepair = false;
@@ -148,6 +152,8 @@ namespace Artisan
         public bool ReplaceSearch = true;
         public bool UsingDiscordHooks;
         public string? DiscordWebhookUrl;
+        public RaphaelSolverSettings RaphaelSolverConfig = new();
+        public ConcurrentDictionary<string, MacroSolverSettings.Macro> RaphaelSolverCacheV2 = [];
 
         public void Save()
         {
@@ -156,6 +162,7 @@ namespace Artisan
 
         public static Configuration Load()
         {
+            var fallback = Svc.PluginInterface.GetPluginConfig() as Configuration ?? new();
             try
             {
                 var contents = File.ReadAllText(Svc.PluginInterface.ConfigFile.FullName);
@@ -167,7 +174,7 @@ namespace Artisan
             catch (Exception e)
             {
                 Svc.Log.Error($"Failed to load config from {Svc.PluginInterface.ConfigFile.FullName}: {e}");
-                return new();
+                return fallback;
             }
         }
 

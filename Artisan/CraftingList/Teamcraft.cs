@@ -2,18 +2,17 @@
 using Artisan.UI;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Components;
-using Dalamud.Utility;
+using ECommons;
 using ECommons.DalamudServices;
 using ECommons.ImGuiMethods;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using PunishLib.ImGuiMethods;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text;
-using System.Windows.Forms;
 
 namespace Artisan.CraftingLists
 {
@@ -55,12 +54,12 @@ namespace Artisan.CraftingLists
             for (int i = 0; i < sublist.Count; i++)
             {
                 if (i >= sublist.Count) break;
-                
+
                 int number = CraftingListUI.selectedList.Recipes[i].Quantity;
                 var recipe = LuminaSheets.RecipeSheet[sublist[i].ID];
                 var ItemId = recipe.ItemResult.Value.RowId;
 
-                Svc.Log.Debug($"{recipe.ItemResult.Value.Name.RawString} {sublist.Count}");
+                Svc.Log.Debug($"{recipe.ItemResult.Value.Name.ToDalamudString().ToString()} {sublist.Count}");
                 ExtractRecipes(sublist, recipe);
             }
 
@@ -79,32 +78,32 @@ namespace Artisan.CraftingLists
             string base64 = Convert.ToBase64String(plainTextBytes);
 
             Svc.Log.Debug($"{baseUrl}{base64}");
-            Clipboard.SetText($"{baseUrl}{base64}");
+            ImGui.SetClipboardText($"{baseUrl}{base64}");
             Notify.Success("链接已复制到剪贴板");
         }
 
         private static void ExtractRecipes(List<ListItem> sublist, Recipe recipe)
         {
-            foreach (var ing in recipe.UnkData5.Where(x => x.AmountIngredient > 0))
+            foreach (var ing in recipe.Ingredients().Where(x => x.Amount > 0))
             {
-                var subRec = CraftingListHelpers.GetIngredientRecipe((uint)ing.ItemIngredient);
+                var subRec = CraftingListHelpers.GetIngredientRecipe(ing.Item.RowId);
                 if (subRec != null)
                 {
-                    if (sublist.Any(x => x.ID == subRec.RowId))
+                    if (sublist.Any(x => x.ID == subRec.Value.RowId))
                     {
-                        foreach (var subIng in subRec.UnkData5.Where(x => x.AmountIngredient > 0))
+                        foreach (var subIng in subRec.Value.Ingredients().Where(x => x.Amount > 0))
                         {
-                            var subSubRec = CraftingListHelpers.GetIngredientRecipe((uint)subIng.ItemIngredient);
+                            var subSubRec = CraftingListHelpers.GetIngredientRecipe(subIng.Item.RowId);
                             if (subSubRec != null)
                             {
-                                if (sublist.Any(x => x.ID == subSubRec.RowId))
+                                if (sublist.Any(x => x.ID == subSubRec.Value.RowId))
                                 {
-                                    sublist.RemoveAll(x => x.ID == subSubRec.RowId);
+                                    sublist.RemoveAll(x => x.ID == subSubRec.Value.RowId);
                                 }
                             }
                         }
 
-                        sublist.RemoveAll(x => x.ID == subRec.RowId);
+                        sublist.RemoveAll(x => x.ID == subRec.Value.RowId);
                     }
                 }
             }
@@ -142,26 +141,33 @@ namespace Artisan.CraftingLists
                 else
                     ImGui.TextWrapped($@"如果勾选该设置，物品将会被作为简易制作导入清单。");
 
-                if (ImGui.Button("导入"))
+                try
                 {
-                    NewCraftingList? importedList = ParseImport(precraftQS, finalitemQS);
-                    if (importedList is not null)
+                    if (ImGui.Button("导入"))
                     {
-                        if (importedList.Name.IsNullOrEmpty())
-                            importedList.Name = importedList.Recipes.FirstOrDefault().ID.NameOfRecipe();
-                        importedList.SetID();
-                        importedList.Save();
-                        openImportWindow = false;
-                        importListName = "";
-                        importListPreCraft = "";
-                        importListItems = "";
+                        NewCraftingList? importedList = ParseImport(precraftQS, finalitemQS);
+                        if (importedList is not null)
+                        {
+                            if (GenericHelpers.IsNullOrEmpty(importedList.Name))
+                                importedList.Name = importedList.Recipes.FirstOrDefault().ID.NameOfRecipe();
+                            importedList.SetID();
+                            importedList.Save();
+                            openImportWindow = false;
+                            importListName = "";
+                            importListPreCraft = "";
+                            importListItems = "";
+
+                        }
+                        else
+                        {
+                            Notify.Error("The imported list has no items. Please check your import and try again.");
+                        }
 
                     }
-                    else
-                    {
-                        Notify.Error("导入的清单中没有物品，请检查你的导入设置并重试。");
-                    }
-
+                }
+                catch (Exception ex)
+                {
+                    ex.Log();
                 }
                 ImGui.SameLine();
                 if (ImGui.Button("取消"))
@@ -202,14 +208,17 @@ namespace Artisan.CraftingLists
                         var item = builder.ToString().Trim();
                         Svc.Log.Debug($"{numberOfItem} x {item}");
 
-                        var recipe = LuminaSheets.RecipeSheet?.Where(x => x.Value.ItemResult.Row > 0 && x.Value.ItemResult.Value.Name.RawString == item).Select(x => x.Value).FirstOrDefault();
-                        if (recipe is not null)
+                        var recipe = GenericHelpers.FindRow<Recipe>(x => x.ItemResult.ValueNullable?.RowId > 0 && x.ItemResult.ValueNullable?.Name.ToDalamudString().ToString() == item);
+                        if (recipe?.RowId > 0)
                         {
-                            int quantity = (int)Math.Ceiling(numberOfItem / (double)recipe.AmountResult);
-                            output.Recipes.Add(new ListItem() { ID = recipe.RowId, Quantity = quantity, ListItemOptions = new() });
+                            int quantity = (int)Math.Ceiling(numberOfItem / (double)recipe.Value.AmountResult);
+                            if (output.Recipes.Any(x => x.ID == recipe.Value.RowId))
+                                output.Recipes.First(x => x.ID == recipe.Value.RowId).Quantity += quantity;
+                            else
+                                output.Recipes.Add(new ListItem() { ID = recipe.Value.RowId, Quantity = quantity, ListItemOptions = new() });
 
-                            if (precraftQS && recipe.CanQuickSynth)
-                                output.Recipes.First(x => x.ID == recipe.RowId).ListItemOptions.NQOnly = true;
+                            if (precraftQS && recipe.Value.CanQuickSynth)
+                                output.Recipes.First(x => x.ID == recipe.Value.RowId).ListItemOptions.NQOnly = true;
                         }
                     }
 
@@ -236,14 +245,17 @@ namespace Artisan.CraftingLists
                         var item = builder.ToString().Trim();
                         if (DebugTab.Debug) Svc.Log.Debug($"{numberOfItem} x {item}");
 
-                        var recipe = LuminaSheets.RecipeSheet?.Where(x => x.Value.ItemResult.Row > 0 && x.Value.ItemResult.Value.Name.RawString == item).Select(x => x.Value).FirstOrDefault();
-                        if (recipe is not null)
+                        var recipe = GenericHelpers.FindRow<Recipe>(x => x.ItemResult.ValueNullable?.RowId > 0 && x.ItemResult.ValueNullable?.Name.ToDalamudString().ToString() == item);
+                        if (recipe?.RowId > 0)
                         {
-                            int quantity = (int)Math.Ceiling(numberOfItem / (double)recipe.AmountResult);
-                            output.Recipes.Add(new ListItem() { ID = recipe.RowId, Quantity = quantity, ListItemOptions = new() });
+                            int quantity = (int)Math.Ceiling(numberOfItem / (double)recipe.Value.AmountResult);
+                            if (output.Recipes.Any(x => x.ID == recipe.Value.RowId))
+                                output.Recipes.First(x => x.ID == recipe.Value.RowId).Quantity += quantity;
+                            else
+                                output.Recipes.Add(new ListItem() { ID = recipe.Value.RowId, Quantity = quantity, ListItemOptions = new() });
 
-                            if (finalitemQS && recipe.CanQuickSynth)
-                                output.Recipes.First(x => x.ID == recipe.RowId).ListItemOptions.NQOnly = true;
+                            if (finalitemQS && recipe.Value.CanQuickSynth)
+                                output.Recipes.First(x => x.ID == recipe.Value.RowId).ListItemOptions.NQOnly = true;
                         }
                     }
 

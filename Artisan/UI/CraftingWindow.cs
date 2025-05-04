@@ -81,7 +81,7 @@ namespace Artisan.UI
                 P.PluginUi.IsOpen = true;
             }
 
-            if (Crafting.CurCraft != null && !Crafting.CurCraft.CraftExpert && Crafting.CurRecipe?.SecretRecipeBook.Row > 0 && Crafting.CurCraft?.CraftLevel == Crafting.CurCraft?.StatLevel && !CraftingProcessor.ActiveSolver.IsType<MacroSolver>())
+            if (Crafting.CurCraft != null && !Crafting.CurCraft.CraftExpert && Crafting.CurRecipe?.SecretRecipeBook.RowId > 0 && Crafting.CurCraft?.CraftLevel == Crafting.CurCraft?.StatLevel && !CraftingProcessor.ActiveSolver.IsType<MacroSolver>())
             {
                 ImGui.Dummy(new System.Numerics.Vector2(12f));
                 ImGuiEx.TextWrapped(ImGuiColors.DalamudYellow, "这是当前等级的主配方，您的成功率可能会有所变化，因此建议使用 Artisan 宏或手动来解决此问题。");
@@ -112,7 +112,7 @@ namespace Artisan.UI
             {
                 if (ImGui.Button("禁用续航模式"))
                 {
-                    Endurance.Enable = false;
+                    Endurance.ToggleEndurance(false);
                     P.TM.Abort();
                     CraftingListFunctions.CLTM.Abort();
                     PreCrafting.Tasks.Clear();
@@ -167,7 +167,7 @@ namespace Artisan.UI
             }
         }
 
-        private void OnSolverStarted(Lumina.Excel.GeneratedSheets.Recipe recipe, SolverRef solver, CraftState craft, StepState initialStep)
+        private void OnSolverStarted(Lumina.Excel.Sheets.Recipe recipe, SolverRef solver, CraftState craft, StepState initialStep)
         {
             if (P.Config.AutoMode && solver)
             {
@@ -177,19 +177,19 @@ namespace Artisan.UI
             }
         }
 
-        private void OnSolverFailed(Lumina.Excel.GeneratedSheets.Recipe recipe, string reason)
+        private void OnSolverFailed(Lumina.Excel.Sheets.Recipe recipe, string reason)
         {
             var text = $"{reason}. Artisan 将不会继续。";
             Svc.Toasts.ShowError(text);
             DuoLog.Error(text);
         }
 
-        private void OnSolverFinished(Lumina.Excel.GeneratedSheets.Recipe recipe, SolverRef solver, CraftState craft, StepState finalStep)
+        private void OnSolverFinished(Lumina.Excel.Sheets.Recipe recipe, SolverRef solver, CraftState craft, StepState finalStep)
         {
             _estimatedCraftEnd = default;
         }
 
-        private void OnRecommendationReady(Lumina.Excel.GeneratedSheets.Recipe recipe, SolverRef solver, CraftState craft, StepState step, Solver.Recommendation recommendation)
+        private void OnRecommendationReady(Lumina.Excel.Sheets.Recipe recipe, SolverRef solver, CraftState craft, StepState step, Solver.Recommendation recommendation)
         {
             Svc.Log.Debug($"{step.TrainedPerfectionAvailable}");
             if (!Simulator.CanUseAction(craft, step, recommendation.Action))
@@ -197,7 +197,7 @@ namespace Artisan.UI
                 return;
             }
             ShowRecommendation(recommendation.Action);
-            if (P.Config.AutoMode)
+            if (P.Config.AutoMode || Endurance.IPCOverride)
             {
                 P.CTM.DelayNext(P.Config.AutoDelay);
                 P.CTM.Enqueue(() => Crafting.CurState == Crafting.State.InProgress, 3000, true, "WaitForStateToUseAction");

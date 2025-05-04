@@ -4,7 +4,6 @@ using Dalamud.Game;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Utility;
 using ECommons.Automation;
 using ECommons.Automation.LegacyTaskManager;
 using ECommons.DalamudServices;
@@ -14,7 +13,6 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using SharpDX.Direct2D1.Effects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,7 +21,6 @@ using System.Runtime.InteropServices;
 using static ECommons.GenericHelpers;
 using MemoryHelper = Dalamud.Memory.MemoryHelper;
 using ECommons.Automation.UIInput;
-using Artisan.Autocraft;
 
 
 namespace Artisan.Tasks;
@@ -222,18 +219,18 @@ internal unsafe static class RetainerHandlers
 {
     internal static bool? SelectQuit()
     {
-        var text = Svc.Data.GetExcelSheet<Lumina.Excel.GeneratedSheets.Addon>().GetRow(2383).Text.ToDalamudString().ExtractText();
+        var text = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Addon>().GetRow(2383).Text.ToDalamudString().GetText(true);
         return TrySelectSpecificEntry(text);
     }
 
     internal static bool? SelectEntrustItems()
     {
         //2378	Entrust or withdraw items.
-        var text = Svc.Data.GetExcelSheet<Lumina.Excel.GeneratedSheets.Addon>().GetRow(2378).Text.ToDalamudString().ExtractText(true);
+        var text = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Addon>().GetRow(2378).Text.ToDalamudString().GetText(true);
         return TrySelectSpecificEntry(text);
     }
 
-    internal static bool? OpenItemContextMenu(uint ItemId, bool lookingForHQ, out uint quantity)
+    internal static bool? OpenItemContextMenu(uint ItemId, bool lookingForHQ, out int quantity)
     {
         quantity = 0;
         var inventories = new List<InventoryType>
@@ -314,11 +311,11 @@ internal unsafe static class RetainerHandlers
     internal static bool? ClickCloseEntrustWindow()
     {
         //13530	Close Window
-        var text = Svc.Data.GetExcelSheet<Lumina.Excel.GeneratedSheets.Addon>().GetRow(13530).Text.ToDalamudString().ExtractText();
+        var text = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Addon>().GetRow(13530).Text.ToDalamudString().GetText();
         if (TryGetAddonByName<AtkUnitBase>("RetainerItemTransferProgress", out var addon) && IsAddonReady(addon))
         {
             var button = (AtkComponentButton*)addon->UldManager.NodeList[2]->GetComponent();
-            var nodetext = MemoryHelper.ReadSeString(&addon->UldManager.NodeList[2]->GetComponent()->UldManager.NodeList[2]->GetAsAtkTextNode()->NodeText).ExtractText();
+            var nodetext = MemoryHelper.ReadSeString(&addon->UldManager.NodeList[2]->GetComponent()->UldManager.NodeList[2]->GetAsAtkTextNode()->NodeText).GetText();
             if (nodetext == text && addon->UldManager.NodeList[2]->IsVisible() && button->IsEnabled && RetainerInfo.GenericThrottle)
             {
                 button->ClickAddonButton(addon);
@@ -383,7 +380,7 @@ internal unsafe static class RetainerHandlers
         var list = new List<string>();
         for (int i = 0; i < addon->PopupMenu.PopupMenu.EntryCount; i++)
         {
-            list.Add(MemoryHelper.ReadSeStringNullTerminated((nint)addon->PopupMenu.PopupMenu.EntryNames[i]).ExtractText());
+            list.Add(MemoryHelper.ReadSeStringNullTerminated((nint)addon->PopupMenu.PopupMenu.EntryNames[i].Value).GetText());
         }
         return list;
     }

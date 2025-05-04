@@ -27,7 +27,7 @@ internal static class CraftingListContextMenu
     public const int RecipeNoteContextItemId = 0x398;
     public const int AgentItemContextItemId = 0x28;
     public const int GatheringNoteContextItemId = 0xA0;
-    public const int ItemSearchContextItemId = 0x1740;
+    public const int ItemSearchContextItemId = 0x17D0;
     public const int ChatLogContextItemId = 0x948;
 
     public const int SubmarinePartsMenuContextItemId = 0x54;
@@ -55,9 +55,9 @@ internal static class CraftingListContextMenu
     {
         if (P.Config.HideContextMenus) return;
 
-        if (!LuminaSheets.RecipeSheet.Values.Any(x => x.ItemResult.Row == ItemId)) return;
+        if (!LuminaSheets.RecipeSheet.Values.Any(x => x.ItemResult.RowId == ItemId)) return;
 
-        var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.Row == ItemId).RowId;
+        var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.RowId == ItemId).RowId;
 
         if (ImGui.Selectable($"打开制作笔记"))
         {
@@ -80,11 +80,10 @@ internal static class CraftingListContextMenu
         {
             uint? itemId;
             itemId = GetGameObjectItemId(args);
+            Svc.Log.Debug($"{itemId}");
+            if (!LuminaSheets.RecipeSheet.Values.Any(x => x.ItemResult.RowId == itemId)) return;
 
-
-            if (!LuminaSheets.RecipeSheet.Values.Any(x => x.ItemResult.Row == itemId)) return;
-
-            var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.Row == itemId).RowId;
+            var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.RowId == itemId).RowId;
 
             var menuItem = new MenuItem();
             menuItem.Name = "打开制作笔记";
@@ -93,6 +92,20 @@ internal static class CraftingListContextMenu
             menuItem.OnClicked += clickedArgs => CraftingListFunctions.OpenRecipeByID(recipeId, true);
 
             args.AddMenuItem(menuItem);
+
+            if (!LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.RowId == itemId, out var recipe)) return;
+
+            bool ingredientsSubCraft = recipe.Ingredients().Any(x => CraftingListHelpers.GetIngredientRecipe(x.Item.RowId) != null);
+
+            var subMenu = new MenuItem();
+            subMenu.IsSubmenu = true;
+            subMenu.Name = "Artisan Crafting List";
+            subMenu.PrefixChar = 'A';
+            subMenu.PrefixColor = 706;
+
+            subMenu.OnClicked += args => OpenArtisanCraftingListSubmenu(args, itemId.Value, recipe.CraftType.RowId, ingredientsSubCraft);
+
+            args.AddMenuItem(subMenu);
         }
 
         if (args.AddonName == "RecipeNote")
@@ -104,9 +117,9 @@ internal static class CraftingListContextMenu
             if (RetainerInfo.GetRetainerItemCount(ItemId) > 0 && RetainerInfo.GetReachableRetainerBell() != null)
             {
                 int amountToGet = 1;
-                if (LuminaSheets.RecipeSheet[Endurance.RecipeID].ItemResult.Row != ItemId)
+                if (LuminaSheets.RecipeSheet[Endurance.RecipeID].ItemResult.RowId != ItemId)
                 {
-                    amountToGet = LuminaSheets.RecipeSheet[Endurance.RecipeID].UnkData5.First(y => y.ItemIngredient == ItemId).AmountIngredient;
+                    amountToGet = LuminaSheets.RecipeSheet[Endurance.RecipeID].Ingredients().First(y => y.Item.RowId == ItemId).Amount;
                 }
 
                 var menuItem = new MenuItem();
@@ -118,9 +131,9 @@ internal static class CraftingListContextMenu
                 args.AddMenuItem(menuItem);
             }
 
-            if (!LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.Row == ItemId, out var recipe)) return;
+            if (!LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.RowId == ItemId, out var recipe)) return;
 
-            bool ingredientsSubCraft = recipe.UnkData5.Any(x => CraftingListHelpers.GetIngredientRecipe((uint)x.ItemIngredient) != null);
+            bool ingredientsSubCraft = recipe.Ingredients().Any(x => CraftingListHelpers.GetIngredientRecipe(x.Item.RowId) != null);
 
             var subMenu = new MenuItem();
             subMenu.IsSubmenu = true;
@@ -139,9 +152,9 @@ internal static class CraftingListContextMenu
             if (ItemId > 500_000)
                 ItemId -= 500_000;
 
-            if (!LuminaSheets.RecipeSheet.Values.Any(x => x.ItemResult.Row == ItemId)) return;
+            if (!LuminaSheets.RecipeSheet.Values.Any(x => x.ItemResult.RowId == ItemId)) return;
 
-            var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.Row == ItemId).RowId;
+            var recipeId = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.RowId == ItemId).RowId;
 
             var menuItem = new MenuItem();
             menuItem.Name = "打开制作笔记";
@@ -295,11 +308,11 @@ internal static class CraftingListContextMenu
     private static void AddToList(uint ItemId, uint craftType, bool withPrecraft = false)
     {
         CraftingListUI.listMaterialsNew.Clear();
-        if (!LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.Row == ItemId && x.CraftType.Row == craftType, out var recipe))
+        if (!LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.RowId == ItemId && x.CraftType.RowId == craftType, out var recipe))
         {
-            recipe = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.Row == ItemId);
+            recipe = LuminaSheets.RecipeSheet.Values.First(x => x.ItemResult.RowId == ItemId);
         }
-
+        if (recipe.Number == 0) return;
         if (withPrecraft)
             CraftingListUI.AddAllSubcrafts(recipe, CraftingListUI.selectedList, 1, P.Config.ContextMenuLoops);
 

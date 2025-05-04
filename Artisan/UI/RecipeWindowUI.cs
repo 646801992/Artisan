@@ -1,9 +1,9 @@
 ﻿using Artisan.Autocraft;
 using Artisan.CraftingLists;
 using Artisan.CraftingLogic;
+using Artisan.CraftingLogic.Solvers;
 using Artisan.FCWorkshops;
 using Artisan.GameInterop;
-using Artisan.GameInterop.CSExt;
 using Artisan.IPC;
 using Artisan.RawInformation;
 using Artisan.UI;
@@ -20,7 +20,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using OtterGui;
 using System;
 using System.Collections.Generic;
@@ -28,7 +28,6 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using System.Web;
 using static ECommons.GenericHelpers;
 
 namespace Artisan
@@ -73,12 +72,117 @@ namespace Artisan
             DrawSearchReplace();
 
             DrawEnduranceCounter();
+            DrawCosmicEnduranceCounter();
 
             DrawWorkshopOverlay();
 
             DrawSupplyMissionOverlay();
 
             DrawMacroOptions();
+            DrawCosmicWindowOptions();
+        }
+
+        private unsafe void DrawCosmicEnduranceCounter()
+        {
+            if (Endurance.RecipeID == 0)
+                return;
+
+            var recipeWindow = Svc.GameGui.GetAddonByName("WKSRecipeNotebook", 1);
+            if (recipeWindow == IntPtr.Zero)
+                return;
+
+            var addonPtr = (AtkUnitBase*)recipeWindow;
+            if (addonPtr == null)
+                return;
+
+            if (addonPtr->UldManager.NodeListCount >= 5)
+            {
+                //var node = addonPtr->UldManager.NodeList[1]->GetAsAtkComponentNode()->Component->UldManager.NodeList[4];
+                var node = addonPtr->UldManager.NodeList[6];
+
+                var position = AtkResNodeFunctions.GetNodePosition(node);
+                var scale = AtkResNodeFunctions.GetNodeScale(node);
+                var size = new Vector2(node->Width, node->Height) * scale;
+                var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
+                //position += ImGuiHelpers.MainViewport.Pos;
+                var textHeight = ImGui.CalcTextSize("Craft X Times:");
+                var craftableCount = addonPtr->UldManager.NodeList[24]->GetAsAtkTextNode()->NodeText.ToString() == "" ? 0 : Convert.ToInt32(addonPtr->UldManager.NodeList[24]->GetAsAtkTextNode()->NodeText.ToString().GetNumbers());
+
+                if (craftableCount == 0) return;
+
+                ImGuiHelpers.ForceNextWindowMainViewport();
+                ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X - 300f.Scale(), position.Y + 10f.Scale()));
+
+                //Svc.Log.Debug($"Length: {size.Length()}, Width: {node->Width}, Scale: {scale.Y}");
+
+                DrawCounter(node, scale, craftableCount);
+            }
+
+        }
+
+        private unsafe void DrawCosmicWindowOptions()
+        {
+            var recipeWindow = Svc.GameGui.GetAddonByName("WKSRecipeNotebook", 1);
+            if (recipeWindow == IntPtr.Zero)
+                return;
+
+            var addonPtr = (AtkUnitBase*)recipeWindow;
+            if (addonPtr == null)
+                return;
+
+            var baseX = addonPtr->X;
+            var baseY = addonPtr->Y;
+
+            if (addonPtr->UldManager.NodeListCount >= 2 && addonPtr->UldManager.NodeList[1]->IsVisible())
+            {
+                var node = addonPtr->UldManager.NodeList[1];
+
+                if (!node->IsVisible())
+                    return;
+
+                var position = AtkResNodeFunctions.GetNodePosition(node);
+                var scale = AtkResNodeFunctions.GetNodeScale(node);
+                var size = new Vector2(node->Width, node->Height) * scale;
+                var center = new Vector2((position.X + size.X) / 2, (position.Y - size.Y) / 2);
+
+                ImGuiHelpers.ForceNextWindowMainViewport();
+                if ((AtkResNodeFunctions.ResetPosition && position.X != 0) || P.Config.LockMiniMenuR)
+                {
+                    ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + size.X + 7, position.Y + 7), ImGuiCond.Always);
+                    AtkResNodeFunctions.ResetPosition = false;
+                }
+                else
+                {
+                    ImGuiHelpers.SetNextWindowPosRelativeMainViewport(new Vector2(position.X + size.X + 7, position.Y + 7), ImGuiCond.FirstUseEver);
+                }
+
+                //Svc.Log.Debug($"{position.X + node->Width + 7}");
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(7f, 7f));
+                ImGui.PushStyleVar(ImGuiStyleVar.WindowMinSize, new Vector2(0f, 0f));
+                ImGui.Begin($"###CosmicOptions{node->NodeId}", ImGuiWindowFlags.NoScrollbar
+                    | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.AlwaysUseWindowPadding);
+
+                ImGui.Spacing();
+
+                DrawCopyOfCraftMenu();
+                if (SimpleTweaks.IsFocusTweakEnabled())
+                {
+                    ImGuiEx.TextWrapped(ImGuiColors.DalamudRed, $@"Warning: You have the ""Auto Focus Recipe Search"" SimpleTweak enabled. This is highly incompatible with Artisan and is recommended to disable it.");
+                }
+                if (Endurance.RecipeID != 0)
+                {
+                    var config = P.Config.RecipeConfigs.GetValueOrDefault(Endurance.RecipeID) ?? new();
+                    if (config.Draw(Endurance.RecipeID))
+                    {
+                        Svc.Log.Debug($"Updating config for {Endurance.RecipeID}");
+                        P.Config.RecipeConfigs[Endurance.RecipeID] = config;
+                        P.Config.Save();
+                    }
+                }
+
+                ImGui.End();
+                ImGui.PopStyleVar(2);
+            }
         }
 
         private unsafe void DrawSearchReplace()
@@ -100,7 +204,7 @@ namespace Artisan
                 }
                 else
                 {
-                    string searchText = Svc.Data.Excel.GetSheet<Addon>().GetRow(1412).Text;
+                    string searchText = Svc.Data.Excel.GetSheet<Addon>().GetRow(1412).Text.ExtractText();
                     searchLabel->GetAsAtkTextNode()->SetText(searchText);
                     return;
                 }
@@ -126,7 +230,7 @@ namespace Artisan
 
                     if (Search.Length > 0 && !searched)
                     {
-                        if (LuminaSheets.RecipeSheet.Values.Count(x => Regex.Match(x.ItemResult.Value.Name.RawString, Search, RegexOptions.IgnoreCase).Success) > 0)
+                        if (LuminaSheets.RecipeSheet.Values.Count(x => Regex.Match(x.ItemResult.Value.Name.ToDalamudString().ToString(), Search, RegexOptions.IgnoreCase).Success) > 0)
                         {
                             ImGui.Begin($"###Search{searchNode->NodeId}", ImGuiWindowFlags.NoScrollbar
                                 | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoNavFocus
@@ -136,10 +240,10 @@ namespace Artisan
                             ImGui.SetNextItemWidth(size.Length() - 12f);
 
                             int results = 0;
-                            foreach (var recipe in LuminaSheets.RecipeSheet.Values.Where(x => Regex.Match(x.ItemResult.Value.Name.RawString, Search, RegexOptions.IgnoreCase).Success))
+                            foreach (var recipe in LuminaSheets.RecipeSheet.Values.Where(x => Regex.Match(x.ItemResult.Value.Name.ToDalamudString().ToString(), Search, RegexOptions.IgnoreCase).Success))
                             {
                                 if (results >= 24) continue;
-                                var selected = ImGui.Selectable($"{recipe.ItemResult.Value.Name} ({(Job)recipe.CraftType.Row + 8})###{recipe.RowId}");
+                                var selected = ImGui.Selectable($"{recipe.ItemResult.Value.Name.ToDalamudString()} ({(Job)recipe.CraftType.RowId + 8})###{recipe.RowId}");
                                 if (selected)
                                 {
                                     var orid = Operations.GetSelectedRecipeEntry();
@@ -369,7 +473,7 @@ namespace Artisan
 
                 if (!boostedCraftsOnly || (boostedCraftsOnly && starred))
                 {
-                    if (LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.Row == ItemId && x.CraftType.Row + 8 == job, out var recipe))
+                    if (LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.RowId == ItemId && x.CraftType.RowId + 8 == job, out var recipe))
                     {
                         var timesToAdd = requested / recipe.AmountResult;
 
@@ -428,7 +532,7 @@ namespace Artisan
 
                 if (!boostedCraftOnly || (boostedCraftOnly && starred))
                 {
-                    if (LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.Row == ItemId && x.CraftType.Row + 8 == job, out var recipe))
+                    if (LuminaSheets.RecipeSheet.Values.FindFirst(x => x.ItemResult.RowId == ItemId && x.CraftType.RowId + 8 == job, out var recipe))
                     {
                         var timesToAdd = requested / recipe.AmountResult;
 
@@ -506,9 +610,9 @@ namespace Artisan
                         var project = LuminaSheets.WorkshopSequenceSheet.Values.First(x => x.ResultItem.Value.Name.ExtractText() == itemNameNode->NodeText.ExtractText());
                         var phaseNum = Convert.ToInt32(phaseProgress->NodeText.ToString().First().ToString());
 
-                        if (project.CompanyCraftPart.Count(x => x.Row > 0) == 1)
+                        if (project.CompanyCraftPart.Count(x => x.RowId > 0) == 1)
                         {
-                            var part = project.CompanyCraftPart.First(x => x.Row > 0).Value;
+                            var part = project.CompanyCraftPart.First(x => x.RowId > 0).Value;
                             var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                             FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, false, null, project);
@@ -541,9 +645,9 @@ namespace Artisan
                         var project = LuminaSheets.WorkshopSequenceSheet.Values.First(x => x.ResultItem.Value.Name.ExtractText() == itemNameNode->NodeText.ExtractText());
                         var phaseNum = Convert.ToInt32(phaseProgress->NodeText.ToString().First().ToString());
 
-                        if (project.CompanyCraftPart.Count(x => x.Row > 0) == 1)
+                        if (project.CompanyCraftPart.Count(x => x.RowId > 0) == 1)
                         {
-                            var part = project.CompanyCraftPart.First(x => x.Row > 0).Value;
+                            var part = project.CompanyCraftPart.First(x => x.RowId > 0).Value;
                             var phase = part.CompanyCraftProcess[phaseNum - 1];
 
                             FCWorkshopUI.CreatePhaseList(phase.Value!, part.CompanyCraftType.Value.Name.ExtractText(), phaseNum, true, null, project);
@@ -672,7 +776,7 @@ namespace Artisan
             }
             bool enable = Endurance.Enable;
 
-            if (!CraftingListFunctions.HasItemsForRecipe(Endurance.RecipeID))
+            if (!CraftingListFunctions.HasItemsForRecipe(Endurance.RecipeID) && !Endurance.Enable)
                 ImGui.BeginDisabled();
 
             if (ImGui.Checkbox("续航模式切换", ref enable))
@@ -680,7 +784,7 @@ namespace Artisan
                 Endurance.ToggleEndurance(enable);
             }
 
-            if (!CraftingListFunctions.HasItemsForRecipe(Endurance.RecipeID))
+            if (!CraftingListFunctions.HasItemsForRecipe(Endurance.RecipeID) && !Endurance.Enable)
             {
                 ImGui.EndDisabled();
 
@@ -744,81 +848,20 @@ namespace Artisan
                 }
                 if (Endurance.RecipeID != 0)
                 {
-                    var recipe = LuminaSheets.RecipeSheet[Endurance.RecipeID];
-                    ImGuiEx.ImGuiLineCentered("###RecipeWindowRecipeName", () => { ImGuiEx.TextUnderlined($"{recipe.ItemResult.Value.Name}"); });
-                    var config = P.Config.RecipeConfigs.GetValueOrDefault(recipe.RowId) ?? new();
-                    var stats = CharacterStats.GetBaseStatsForClassHeuristic(Job.CRP + recipe.CraftType.Row);
-                    stats.AddConsumables(new(config.RequiredFood, config.RequiredFoodHQ), new(config.RequiredPotion, config.RequiredPotionHQ));
-                    var craft = Crafting.BuildCraftStateForRecipe(stats, Job.CRP + recipe.CraftType.Row, recipe);
-                    if (config.Draw(craft))
+                    var config = P.Config.RecipeConfigs.GetValueOrDefault(Endurance.RecipeID) ?? new();
+                    if (config.Draw(Endurance.RecipeID))
                     {
-                        Svc.Log.Debug($"更新配置 {recipe.RowId}");
-                        P.Config.RecipeConfigs[recipe.RowId] = config;
+                        P.Config.RecipeConfigs[Endurance.RecipeID] = config;
                         P.Config.Save();
                     }
-
-                    if (!P.Config.HideRecipeWindowSimulator)
-                    {
-                        var solverHint = Simulator.SimulatorResult(recipe, config, craft, out var hintColor);
-
-                        if (!recipe.IsExpert)
-                            ImGuiEx.TextWrapped(hintColor, solverHint);
-                        else
-                            ImGuiEx.TextWrapped($"请在模拟器中运行此配方以获得结果。");
-
-                        if (ImGui.IsItemClicked())
-                        {
-                            P.PluginUi.OpenWindow = UI.OpenWindow.Simulator;
-                            P.PluginUi.IsOpen = true;
-                            SimulatorUI.SelectedRecipe = recipe;
-                            SimulatorUI.ResetSim();
-                            if (config.RequiredPotion > 0)
-                            {
-                                SimulatorUI.SimMedicine ??= new();
-                                SimulatorUI.SimMedicine.Id = config.RequiredPotion;
-                                SimulatorUI.SimMedicine.ConsumableHQ = config.RequiredPotionHQ;
-                                SimulatorUI.SimMedicine.Stats = new ConsumableStats(config.RequiredPotion, config.RequiredPotionHQ);
-                            }
-                            if (config.RequiredFood > 0)
-                            {
-                                SimulatorUI.SimFood ??= new();
-                                SimulatorUI.SimFood.Id = config.RequiredFood;
-                                SimulatorUI.SimFood.ConsumableHQ = config.RequiredFoodHQ;
-                                SimulatorUI.SimFood.Stats = new ConsumableStats(config.RequiredFood, config.RequiredFoodHQ);
-                            }
-
-                            foreach (ref var gs in RaptureGearsetModule.Instance()->Entries)
-                            {
-                                if ((Job)gs.ClassJob == Job.CRP + recipe.CraftType.Row)
-                                {
-                                    if (SimulatorUI.SimGS is null || (Job)SimulatorUI.SimGS.Value.ClassJob != Job.CRP + recipe.CraftType.Row)
-                                    {
-                                        SimulatorUI.SimGS = gs;
-                                    }
-
-                                    if (SimulatorUI.SimGS.Value.ItemLevel < gs.ItemLevel)
-                                        SimulatorUI.SimGS = gs;
-                                }
-                            }
-
-                            var rawSolver = CraftingProcessor.GetSolverForRecipe(config, craft);
-                            SimulatorUI._selectedSolver = new(rawSolver.Name, rawSolver.Def.Create(craft, rawSolver.Flavour));
-                        }
-
-                        if (ImGui.IsItemHovered())
-                        {
-                            ImGuiEx.Tooltip($"点击在模拟器中打开");
-                        }
-
-
-                    }
-
                 }
 
                 ImGui.End();
                 ImGui.PopStyleVar(2);
             }
         }
+
+        
 
         internal static unsafe void DrawEnduranceCounter()
         {

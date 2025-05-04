@@ -1,6 +1,7 @@
 ﻿using Artisan.Autocraft;
 using Artisan.CraftingLists;
 using Artisan.CraftingLogic;
+using Artisan.GameInterop.CSExt;
 using Artisan.RawInformation;
 using Artisan.RawInformation.Character;
 using Dalamud.Game.ClientState.Conditions;
@@ -15,7 +16,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System;
 using System.Collections.Generic;
 using static ECommons.GenericHelpers;
@@ -36,7 +37,10 @@ public unsafe static class PreCrafting
     private static Hook<ClickSynthesisButton> _clickButton;
 
     private delegate void* FireCallbackDelegate(AtkUnitBase* atkUnitBase, int valueCount, AtkValue* atkValues, byte updateVisibility);
-    private static Hook<FireCallbackDelegate> _fireCallbackHook;
+    private static Hook<FireCallbackDelegate> _gearsetCallback;
+
+    delegate nint AddonWKSRecipeNote_ReceiveEventDelegate(nint a1, ushort a2, uint a3, nint a4, nint a5);
+    private static Hook<AddonWKSRecipeNote_ReceiveEventDelegate> _cosmicCallback;
 
     public enum TaskResult { Done, Retry, Abort }
     public static List<(Func<TaskResult> task, TimeSpan retryDelay)> Tasks = new();
@@ -44,17 +48,36 @@ public unsafe static class PreCrafting
 
     static PreCrafting()
     {
-        _clickButton = Svc.Hook.HookFromSignature<ClickSynthesisButton>("40 55 53 56 57 41 57 48 8D 6C 24 ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 0F 48 8B 7D 7F", ClickSynthButtons);
-        _clickButton.Enable();
+        _clickButton = Svc.Hook.HookFromSignature<ClickSynthesisButton>("40 55 53 56 57 41 56 48 8D 6C 24 D1 48 81 EC C0 00 00 00", ClickSynthButtons);
+        _clickButton?.Enable();
 
-        _fireCallbackHook = Svc.Hook.HookFromSignature<FireCallbackDelegate>("E8 ?? ?? ?? ?? 0F B6 E8 8B 44 24 20", CallbackDetour);
+        _gearsetCallback = Svc.Hook.HookFromSignature<FireCallbackDelegate>("E8 ?? ?? ?? ?? 0F B6 E8 8B 44 24 20", CallbackDetour);
+
+        _cosmicCallback = Svc.Hook.HookFromSignature<AddonWKSRecipeNote_ReceiveEventDelegate>("4C 8B DC 49 89 6B 20 41 56 48 83 EC 60", ClickCosmicButton);
+        _cosmicCallback?.Enable();
     }
 
+    private static nint ClickCosmicButton(nint a1, ushort a2, uint a3, nint a4, nint a5)
+    {
+        try
+        {
+            if (a2 == 25 && a3 == 0)
+            {
+                StartCraftingFromSynth(14);
+                return 0;
+            }
+        }
+        catch( Exception ex)
+        {
+            ex.Log();
+        }
+        return _cosmicCallback.Original(a1, a2, a3, a4, a5);
+    }
 
     private static void* CallbackDetour(AtkUnitBase* atkUnitBase, int valueCount, AtkValue* atkValues, byte updateVisibility)
     {
         var name = atkUnitBase->NameString.TrimEnd();
-        if (name.Substring(0, 11) == "SelectYesno")
+        if (name.Length >= 11 && name.Substring(0, 11) == "SelectYesno")
         {
             var result = atkValues[0];
             if (result.Int == 1)
@@ -68,16 +91,17 @@ public unsafe static class PreCrafting
                 Tasks.Clear();
             }
 
-            _fireCallbackHook.Disable();
+            _gearsetCallback.Disable();
 
         }
-        return _fireCallbackHook.Original(atkUnitBase, valueCount, atkValues, updateVisibility);
+        return _gearsetCallback.Original(atkUnitBase, valueCount, atkValues, updateVisibility);
     }
 
     public static void Dispose()
     {
         _clickButton?.Dispose();
-        _fireCallbackHook?.Dispose();
+        _gearsetCallback?.Dispose();
+        _cosmicCallback?.Dispose();
     }
 
     public static void Update()
@@ -106,26 +130,26 @@ public unsafe static class PreCrafting
     {
         try
         {
-            Svc.Log.Debug($"Starting {type} crafting: {recipe.RowId} '{recipe.ItemResult.Value?.Name}'");
+            Svc.Log.Debug($"Starting {type} crafting: {recipe.RowId} '{recipe.ItemResult.Value.Name.ToDalamudString()}'");
 
-            var requiredClass = Job.CRP + recipe.CraftType.Row;
+            var requiredClass = Job.CRP + recipe.CraftType.RowId;
             var config = P.Config.RecipeConfigs.GetValueOrDefault(recipe.RowId);
 
             bool hasIngredients = GetNumberCraftable(recipe) > 0;
             bool needClassChange = requiredClass != CharacterInfo.JobID;
-            bool needEquipItem = recipe.ItemRequired.Row > 0 && (needClassChange || !IsItemEquipped(recipe.ItemRequired.Row));
+            bool needEquipItem = recipe.ItemRequired.RowId > 0 && (needClassChange || !IsItemEquipped(recipe.ItemRequired.RowId));
             bool needConsumables = NeedsConsumablesCheck(type, config);
             bool hasConsumables = HasConsumablesCheck(config);
 
             // handle errors when we're forbidden from rectifying them automatically
             if (P.Config.DontEquipItems && needClassChange)
             {
-                DuoLog.Error($"Can't craft {recipe.ItemResult.Value?.Name}: wrong class, {requiredClass} needed");
+                DuoLog.Error($"Can't craft {recipe.ItemResult.Value.Name.ToDalamudString()}: wrong class, {requiredClass} needed");
                 return;
             }
             if (P.Config.DontEquipItems && needEquipItem)
             {
-                DuoLog.Error($"Can't craft {recipe.ItemResult.Value?.Name}: required item {recipe.ItemRequired.Value?.Name} not equipped");
+                DuoLog.Error($"Can't craft {recipe.ItemResult.Value.Name.ToDalamudString()}: required item {recipe.ItemRequired.Value.Name} not equipped");
                 return;
             }
             if (P.Config.AbortIfNoFoodPot && needConsumables && !hasConsumables)
@@ -151,14 +175,14 @@ public unsafe static class PreCrafting
             {
                 List<string> missingIngredients = MissingIngredients(recipe);
 
-                DuoLog.Error($"Not all ingredients for {recipe.ItemResult.Value?.Name} found.\r\nMissing: {string.Join(", ", missingIngredients)}");
+                DuoLog.Error($"Not all ingredients for {recipe.ItemResult.Value.Name.ToDalamudString()} found.\r\nMissing: {string.Join(", ", missingIngredients)}");
                 return;
             }
 
             if (needEquipItem)
             {
                 equipAttemptLoops = 0;
-                Tasks.Add((() => TaskEquipItem(recipe.ItemRequired.Row), default));
+                Tasks.Add((() => TaskEquipItem(recipe.ItemRequired.RowId), default));
             }
 
             bool needFood = config != default && ConsumableChecker.HasItem(config.RequiredFood, config.RequiredFoodHQ) && !ConsumableChecker.IsFooded(config);
@@ -185,7 +209,7 @@ public unsafe static class PreCrafting
     {
         List<string> missingConsumables = MissingConsumables(config);
 
-        DuoLog.Error($"Can't craft {recipe.ItemResult.Value?.Name}: required consumables not up and missing {string.Join(", ", missingConsumables)}");
+        DuoLog.Error($"Can't craft {recipe.ItemResult.Value.Name.ToDalamudString()}: required consumables not up and missing {string.Join(", ", missingConsumables)}");
     }
 
     internal static bool NeedsConsumablesCheck(CraftType type, RecipeConfig? config)
@@ -223,13 +247,13 @@ public unsafe static class PreCrafting
     public static List<string> MissingIngredients(Recipe recipe)
     {
         List<string> missingIngredients = new();
-        foreach (var ing in recipe.UnkData5)
+        foreach (var ing in recipe.Ingredients())
         {
-            if (ing.AmountIngredient > 0)
+            if (ing.Amount > 0)
             {
-                if (CraftingListUI.NumberOfIngredient((uint)ing.ItemIngredient) < ing.AmountIngredient)
+                if (CraftingListUI.NumberOfIngredient(ing.Item.RowId) < ing.Amount)
                 {
-                    missingIngredients.Add(((uint)ing.ItemIngredient).NameOfItem());
+                    missingIngredients.Add(ing.Item.RowId.NameOfItem());
                 }
             }
         }
@@ -255,6 +279,11 @@ public unsafe static class PreCrafting
             if (int.TryParse(addon->SelectedRecipeQuantityCraftableFromMaterialsInInventory->NodeText.ToString(), out int output))
                 return output;
         }
+        if (TryGetAddonByName<AtkUnitBase>("WKSRecipeNotebook", out var cosmic) && cosmic->UldManager.NodeList[24] != null)
+        {
+            if (int.TryParse(cosmic->UldManager.NodeList[24]->GetAsAtkTextNode()->NodeText.ToString(), out int output))
+                return output;
+        }
         return -1;
     }
 
@@ -275,6 +304,12 @@ public unsafe static class PreCrafting
                 {
                     Svc.Log.Debug("Closing recipe menu to exit crafting state");
                     Callback.Fire(&addon->AtkUnitBase, true, -1);
+                }
+                var addon2 = (AtkUnitBase*)Svc.GameGui.GetAddonByName("WKSRecipeNotebook");
+                if (addon2 != null && addon2->IsVisible)
+                {
+                    Svc.Log.Debug("Closing recipe menu to exit crafting state");
+                    Callback.Fire(addon2, true, -1);
                 }
                 return TaskResult.Retry;
         }
@@ -309,7 +344,7 @@ public unsafe static class PreCrafting
                     else
                     {
                         equipGearsetLoops++;
-                        _fireCallbackHook?.Enable();
+                        _gearsetCallback?.Enable();
                         var r = gearsets->EquipGearset(gs.Id);
                         return r < 0 ? TaskResult.Abort : TaskResult.Retry;
                     }
@@ -450,12 +485,56 @@ public unsafe static class PreCrafting
         if (re != null && re->RecipeId == recipe.RowId)
             return TaskResult.Done;
 
-        AgentRecipeNote.Instance()->OpenRecipeByRecipeId(recipe.RowId);
+        if (recipe.Number == 0)
+        {
+            var addon = Crafting.GetCosmicAddon();
+
+            if (addon == null)
+            {
+                AgentRecipeNote.Instance()->OpenRecipeByRecipeId(recipe.RowId);
+                return TaskResult.Retry;
+            }
+
+            var rd = RecipeNoteRecipeData.Ptr();
+            if (rd == null)
+                return TaskResult.Retry;
+
+            for (int i = 0; i < rd->RecipesCount; i++)
+            {
+                try
+                {
+                    Callback.Fire(addon, false, 0, i);
+                    re = Operations.GetSelectedRecipeEntry();
+                    if (re != null && re->RecipeId == recipe.RowId)
+                        return TaskResult.Done;
+                }
+                catch (Exception ex)
+                {
+                    return TaskResult.Done;
+                }
+            }
+        }
+        else
+        {
+            AgentRecipeNote.Instance()->OpenRecipeByRecipeId(recipe.RowId);
+        }
         return TaskResult.Retry;
     }
 
     public static TaskResult TaskStartCraft(CraftType type)
     {
+        if (TryGetAddonByName<AtkUnitBase>("WKSRecipeNotebook", out var cosmicAddon))
+        {
+            if (cosmicAddon == null)
+                return TaskResult.Retry;
+
+            Svc.Log.Debug($"Starting actual cosmic craft");
+            Callback.Fire(cosmicAddon, true, 6);
+
+            return TaskResult.Done;
+
+        }
+
         var addon = (AddonRecipeNote*)Svc.GameGui.GetAddonByName("RecipeNote");
         if (addon == null)
             return TaskResult.Retry;
@@ -498,19 +577,24 @@ public unsafe static class PreCrafting
 
     private static void ClickSynthButtons(void* thisPtr, AtkEventType eventType, int eventParam, AtkEvent* atkEvent, AtkEventData* atkEventData)
     {
-        if (eventType == AtkEventType.ButtonClick && eventParam is 13 or 14 or 15)
+        if (eventType == AtkEventType.ButtonClick && eventParam is 14 or 15 or 16)
         {
-            var re = Operations.GetSelectedRecipeEntry();
-            var recipe = re != null ? Svc.Data.GetExcelSheet<Recipe>()?.GetRow(re->RecipeId) : null;
-            if (recipe != null)
-                StartCrafting(recipe, eventParam is 13 ? CraftType.Normal : eventParam is 14 ? CraftType.Quick : CraftType.Trial);
-            else
-                DuoLog.Error($"Somehow recipe is null. Please report this on the Discord.");
+            StartCraftingFromSynth(eventParam);
         }
         else
         {
             _clickButton?.OriginalDisposeSafe(thisPtr, eventType, eventParam, atkEvent, atkEventData);
         }
 
+    }
+
+    private static void StartCraftingFromSynth(int eventParam)
+    {
+        var re = Operations.GetSelectedRecipeEntry();
+        var recipe = re != null ? Svc.Data.GetExcelSheet<Recipe>()?.GetRow(re->RecipeId) : null;
+        if (recipe != null)
+            StartCrafting(recipe.Value, eventParam is 14 ? CraftType.Normal : eventParam is 15 ? CraftType.Quick : CraftType.Trial);
+        else
+            DuoLog.Error($"Somehow recipe is null. Please report this on the Discord.");
     }
 }

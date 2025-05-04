@@ -1,5 +1,6 @@
 ﻿using Artisan.CraftingLogic.CraftData;
 using Artisan.RawInformation.Character;
+using ECommons.DalamudServices;
 using System.Collections.Generic;
 
 namespace Artisan.CraftingLogic.Solvers;
@@ -64,6 +65,14 @@ public class ExpertSolver : Solver
 
     public static Recommendation SolveNextStep(ExpertSolverSettings cfg, CraftState craft, StepState step)
     {
+        // see what we need to finish the craft
+        var remainingProgress = craft.CraftProgress - step.Progress;
+        var estBasicSynthProgress = Simulator.BaseProgress(craft) * 120 / 100;
+        var estCarefulSynthProgress = Simulator.BaseProgress(craft) * 180 / 100; // minimal, assuming no procs/buffs
+        var reservedCPForProgress = remainingProgress <= estBasicSynthProgress ? 0 : 7;
+        var progressDeficit = remainingProgress - estCarefulSynthProgress; // if >0, we need more progress before we can start finisher
+        var cpAvailableForQuality = step.RemainingCP - reservedCPForProgress;
+
         var qualityTarget = craft.IshgardExpert && cfg.MaxIshgardRecipes ? craft.CraftQualityMax : craft.CraftQualityMin3; // TODO: reconsider, this is a bit of a hack
         if (step.Index == 1)
         {
@@ -72,19 +81,14 @@ public class ExpertSolver : Solver
             // - mume is worth ~800p of progress (assuming we spend the buff on rapid), which is approximately equal to 3.2 rapids, which is 32 dura or ~76.8cp
             // - reflect is worth ~2 prudents of iq stacks minus 100p of quality, which is approximately equal to 50cp + 10 dura or ~74cp minus value of quality
             // so on paper mume seems to be better
-            return new(cfg.UseReflectOpener ? Skills.Reflect : Skills.MuscleMemory, "opener");
+            return new(cfg.UseReflectOpener || Simulator.CalculateProgress(craft, step, Skills.MuscleMemory) >= craft.CraftProgress || craft.CraftDurability <= 20 ? Skills.Reflect : Skills.MuscleMemory, "opener");
         }
 
         if (step.MuscleMemoryLeft > 0) // mume still active - means we have very little progress and want more progress asap
             return new(SafeCraftAction(craft, step, SolveOpenerMuMe(cfg, craft, step)), "mume");
 
-        // see what we need to finish the craft
-        var remainingProgress = craft.CraftProgress - step.Progress;
-        var estBasicSynthProgress = Simulator.BaseProgress(craft) * 120 / 100;
-        var estCarefulSynthProgress = Simulator.BaseProgress(craft) * 180 / 100; // minimal, assuming no procs/buffs
-        var reservedCPForProgress = remainingProgress <= estBasicSynthProgress ? 0 : 7;
-        var progressDeficit = remainingProgress - estCarefulSynthProgress; // if >0, we need more progress before we can start finisher
-        var cpAvailableForQuality = step.RemainingCP - reservedCPForProgress;
+        if (cfg.UseMaterialMiracle && Simulator.CanUseAction(craft, step, Skills.MaterialMiracle))
+            return new(Skills.MaterialMiracle);
 
         // see if we can do byregot right now and top up quality
         var finishQualityAction = SolveFinishQuality(craft, step, cpAvailableForQuality, qualityTarget);
@@ -129,7 +133,7 @@ public class ExpertSolver : Solver
             if (step.MuscleMemoryLeft > cfg.MuMeMinStepsForManip && step.ManipulationLeft == 0)
                 return Skills.Manipulation;
         }
-        else if (step.Condition == Condition.安定)
+        else if (step.Condition == Condition.Centered && Simulator.GetDurabilityCost(step, Skills.RapidSynthesis) < step.Durability)
         {
             // centered rapid is very good value, even disregarding last-chance or veneration concerns
             return Skills.RapidSynthesis;
@@ -144,22 +148,25 @@ public class ExpertSolver : Solver
             // last-chance/preferred intensive or rapid, regardless of veneration
             return SolveOpenerMuMeTouch(craft, step, cfg.MuMeIntensiveMalleable || cfg.MuMeIntensiveLastResort && lastChance);
         }
-        else if (step.Condition == Condition.高品质 && cfg.MuMeIntensiveGood)
+        else if (step.Condition == Condition.Good && cfg.MuMeIntensiveGood && Simulator.GetDurabilityCost(step, Skills.IntensiveSynthesis) < step.Durability)
         {
             // good and we want to spend on intensive
             return Skills.IntensiveSynthesis;
         }
 
         // ok we have a normal/ignored condition
+        if (Simulator.GetDurabilityCost(step, Skills.RapidSynthesis) >= step.Durability && step.ManipulationLeft == 0)
+            return Skills.Manipulation;
         if (step.MuscleMemoryLeft > cfg.MuMeMinStepsForVene && step.VenerationLeft == 0)
             return Skills.Veneration;
         if (cfg.MuMeAllowObserve && step.MuscleMemoryLeft > 1 && step.Durability < craft.CraftDurability)
             return Skills.Observe; // conserve durability rather than gamble away
+
         return SolveOpenerMuMeTouch(craft, step, cfg.MuMeIntensiveLastResort && lastChance);
     }
 
     private static Skills SolveOpenerMuMeTouch(CraftState craft, StepState step, bool intensive)
-        => !intensive ? Skills.RapidSynthesis : Simulator.CanUseAction(craft, step, Skills.IntensiveSynthesis) ? Skills.IntensiveSynthesis : step.HeartAndSoulAvailable ? Skills.HeartAndSoul : Skills.RapidSynthesis;
+        =>  !intensive ? Skills.RapidSynthesis : Simulator.CanUseAction(craft, step, Skills.IntensiveSynthesis) ? Skills.IntensiveSynthesis : step.HeartAndSoulAvailable ? Skills.HeartAndSoul : Skills.RapidSynthesis;
 
     private static Recommendation SolveMid(ExpertSolverSettings cfg, CraftState craft, StepState step, int progressDeficit, int availableCP)
     {
@@ -517,7 +524,7 @@ public class ExpertSolver : Solver
             if (step.ManipulationLeft > 0)
                 return Skills.Observe; // just regen a bit...
             // TODO: consider careful observation to bait pliant - this sounds much worse than using them to try baiting good byregot
-            if (cfg.MidBaitPliantWithObservePreQuality)
+            if (cfg.MidBaitPliantWithObservePreQuality && craft.ConditionFlags.HasFlag(ConditionFlags.Pliant))
                 return Skills.Observe; // try baiting pliant - this will save us 48cp at the cost of ~7+24cp
             if (step.Durability <= criticalDurabilityThreshold)
                 return Skills.Manipulation; // bait the bullet and manip on normal
@@ -552,7 +559,7 @@ public class ExpertSolver : Solver
             // - observe and wait for pliant, then do normal half-combos (~31cp to save ~48cp)
             // - inno + finesse - quite expensive cp-wise (600p for 146=18+4*32cp = 4.11p/cp), but slightly more effective than using full-cost manip + focused+observe (450p for 116=96/2+18+2*25cp = 3.88p/cp)
             var freeCP = availableCP - (88 + 18 + 32 + 24); // we need at least this much cp to do a normal mm + inno + gs + byregot
-            if (cfg.MidBaitPliantWithObserveAfterIQ && freeCP >= 7)
+            if (cfg.MidBaitPliantWithObserveAfterIQ && freeCP >= 7 && craft.ConditionFlags.HasFlag(ConditionFlags.Pliant))
                 return Skills.Observe; // try baiting pliant - this will save us 48cp at the cost of ~7+24cp
             if (freeCP >= 18 + 4 * 32) // inno + 4xfinesse
                 return Skills.None;
@@ -632,7 +639,7 @@ public class ExpertSolver : Solver
             // try [gs]+inno+byregot
             var adjBuffMod = (1 + 0.1f * step.IQStacks) * 2.5f;
             float effPotency = (100 + 20 * step.IQStacks) * adjBuffMod;
-            float condMod = step.Condition != Condition.好兆头 ? 1 : craft.Splendorous ? 1.75f : 1.5f;
+            float condMod = step.Condition != Condition.GoodOmen ? 1 : craft.SplendorCosmic ? 1.75f : 1.5f;
             var adjQuality = (int)(Simulator.BaseQuality(craft) * condMod * effPotency / 100);
             if (missingQuality <= adjQuality)
                 return new(Skills.Innovation, "fq: inno->byregot");
@@ -642,7 +649,7 @@ public class ExpertSolver : Solver
             // try gs+byregot
             var adjBuffMod = (1 + 0.1f * step.IQStacks) * (step.InnovationLeft > 1 ? 2.5f : 2.0f);
             float effPotency = (100 + 20 * step.IQStacks) * adjBuffMod;
-            float condMod = step.Condition != Condition.好兆头 ? 1 : craft.Splendorous ? 1.75f : 1.5f;
+            float condMod = step.Condition != Condition.GoodOmen ? 1 : craft.SplendorCosmic ? 1.75f : 1.5f;
             var adjQuality = (int)(Simulator.BaseQuality(craft) * condMod * effPotency / 100);
             if (missingQuality <= adjQuality)
                 return new(Skills.GreatStrides, "fq: gs->byregot");

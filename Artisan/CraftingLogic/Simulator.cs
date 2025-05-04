@@ -1,11 +1,7 @@
-﻿using Artisan.CraftingLogic.CraftData;
-using Artisan.GameInterop.CSExt;
+﻿using Artisan.GameInterop.CSExt;
 using Artisan.RawInformation.Character;
 using Dalamud.Interface.Colors;
-using Dalamud.Utility;
-using ECommons.DalamudServices;
-using ECommons.ImGuiMethods;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System;
 using System.ComponentModel;
 using System.Numerics;
@@ -52,16 +48,18 @@ public static class Simulator
     }
 
     public static StepState CreateInitial(CraftState craft, int startingQuality)
-        => new() { 
-            Index = 1, 
-            Durability = craft.CraftDurability, 
-            Quality = startingQuality, 
-            RemainingCP = craft.StatCP, 
-            CarefulObservationLeft = craft.Specialist ? 3 : 0, 
+        => new()
+        {
+            Index = 1,
+            Durability = craft.CraftDurability,
+            Quality = startingQuality,
+            RemainingCP = craft.StatCP,
+            CarefulObservationLeft = craft.Specialist ? 3 : 0,
             HeartAndSoulAvailable = craft.Specialist,
-            QuickInnoAvailable = craft.Specialist,
-            TrainedPerfectionAvailable = craft.StatLevel >= MinLevel(Skills.TrainedPerfection), 
-            Condition = Condition.通常 
+            QuickInnoLeft = craft.Specialist ? 1 : 0,
+            TrainedPerfectionAvailable = craft.StatLevel >= MinLevel(Skills.TrainedPerfection),
+            Condition = Condition.Normal,
+            MaterialMiracleCharges = (uint)(craft.MissionHasMaterialMiracle ? 1 : 0),
         };
 
     public static CraftStatus Status(CraftState craft, StepState step)
@@ -104,14 +102,12 @@ public static class Simulator
         }
     }
 
-    public unsafe static string SimulatorResult(Recipe recipe, RecipeConfig config, CraftState craft, out Vector4 hintColor)
+    public unsafe static string SimulatorResult(Recipe recipe, RecipeConfig config, CraftState craft, out Vector4 hintColor, bool assumeMaxStartingQuality = false)
     {
         hintColor = ImGuiColors.DalamudWhite;
         var solver = CraftingProcessor.GetSolverForRecipe(config, craft).CreateSolver(craft);
         if (solver == null) return "未找到有效的求解器。";
-        var rd = RecipeNoteRecipeData.Ptr();
-        var re = rd != null ? rd->FindRecipeById(recipe.RowId) : null;
-        var startingQuality = re != null ? Calculations.GetStartingQuality(recipe, re->GetAssignedHQIngredients()) : 0;
+        var startingQuality = GetStartingQuality(recipe, assumeMaxStartingQuality);
         var time = SolverUtils.EstimateCraftTime(solver, craft, startingQuality);
         var result = SolverUtils.SimulateSolverExecution(solver, craft, startingQuality);
         var status = result != null ? Status(craft, result) : CraftStatus.InProgress;
@@ -121,12 +117,12 @@ public static class Simulator
         {
             CraftStatus.InProgress => "制作未完成（求解器在完成前未返回更多步骤）。",
             CraftStatus.FailedDurability => $"制作失败，耐久不足。(进展: {(float)result.Progress / craft.CraftProgress * 100:f0}%, 品质: {(float)result.Quality / craft.CraftQualityMax * 100:f0}%)",
-            CraftStatus.FailedMinQuality => "制作完成，但未达到最低品质要求。",
-            CraftStatus.SucceededQ1 => $"制作完成，并达成第一段收藏价值，耗时 {time.TotalSeconds:f0}s 。",
-            CraftStatus.SucceededQ2 => $"制作完成，并达成第二段收藏价值，耗时 {time.TotalSeconds:f0}s 。",
-            CraftStatus.SucceededQ3 => $"制作完成，并达成第三段收藏价值，耗时 {time.TotalSeconds:f0}s ！",
-            CraftStatus.SucceededMaxQuality => $"制作完成，并达到最高品质，耗时 {time.TotalSeconds:f0}s ！",
-            CraftStatus.SucceededSomeQuality => $"制作完成，但未达到最高品质 ({hq}%) ，耗时 {time.TotalSeconds:f0}s。",
+            CraftStatus.FailedMinQuality => $"制作完成，但未达到最低品质要求。(进展: {(float)result.Progress / craft.CraftProgress * 100:f0}%, 品质: {(float)result.Quality / craft.CraftQualityMax * 100:f0}%).",
+            CraftStatus.SucceededQ1 => $"制作完成，并达成第一段收藏价值，耗时 {time.TotalSeconds:f0}s.",
+            CraftStatus.SucceededQ2 => $"制作完成，并达成第二段收藏价值，耗时 {time.TotalSeconds:f0}s.",
+            CraftStatus.SucceededQ3 => $"制作完成，并达成第三段收藏价值，耗时 {time.TotalSeconds:f0}s!",
+            CraftStatus.SucceededMaxQuality => $"制作完成，并达到最高品质，耗时  {time.TotalSeconds:f0}s!",
+            CraftStatus.SucceededSomeQuality => $"制作完成，但未达到最高品质 ({hq}%) 耗时 {time.TotalSeconds:f0}s",
             CraftStatus.SucceededNoQualityReq => $"制作完成，无品质要求，耗时 {time.TotalSeconds:f0}s!",
             CraftStatus.Count => "你不应该能看到这个，请报告这个问题。",
             _ => "你不应该能看到这个，请报告这个问题。",
@@ -149,6 +145,15 @@ public static class Simulator
         };
 
         return solverHint;
+    }
+
+    public unsafe static int GetStartingQuality(Recipe recipe, bool assumeMaxStartingQuality)
+    {
+        var rd = RecipeNoteRecipeData.Ptr();
+        var re = rd != null ? rd->FindRecipeById(recipe.RowId) : null;
+        var shqf = (float)recipe.MaterialQualityFactor / 100;
+        var startingQuality = assumeMaxStartingQuality ? (int)(Calculations.RecipeMaxQuality(recipe) * shqf) : re != null ? Calculations.GetStartingQuality(recipe, re->GetAssignedHQIngredients()) : 0;
+        return startingQuality;
     }
 
     public static (ExecuteResult, StepState) Execute(CraftState craft, StepState step, Skills action, float actionSuccessRoll, float nextStateRoll)
@@ -197,11 +202,14 @@ public static class Simulator
         next.CarefulObservationLeft = step.CarefulObservationLeft - (action == Skills.CarefulObservation ? 1 : 0);
         next.HeartAndSoulActive = action == Skills.HeartAndSoul || step.HeartAndSoulActive && (step.Condition is Condition.高品质 or Condition.最高品质 || !ConsumeHeartAndSoul(action));
         next.HeartAndSoulAvailable = step.HeartAndSoulAvailable && action != Skills.HeartAndSoul;
-        next.QuickInnoAvailable = step.QuickInnoAvailable && action != Skills.QuickInnovation;
+        next.QuickInnoLeft = step.QuickInnoLeft - (action == Skills.QuickInnovation ? 1 : 0);
+        next.QuickInnoAvailable = step.QuickInnoLeft > 0 && next.InnovationLeft == 0;
         next.PrevActionFailed = !success;
         next.PrevComboAction = action; // note: even stuff like final appraisal and h&s break combos
         next.TrainedPerfectionActive = action == Skills.TrainedPerfection || (step.TrainedPerfectionActive && !HasDurabilityCost(action));
         next.TrainedPerfectionAvailable = step.TrainedPerfectionAvailable && action != Skills.TrainedPerfection;
+        next.MaterialMiracleCharges = action == Skills.MaterialMiracle ? step.MaterialMiracleCharges - 1 : step.MaterialMiracleCharges;
+        next.MaterialMiracleActive = step.MaterialMiracleActive; //This is a timed buff, can't really use this in the simulator, just copy the real result
 
         if (step.FinalAppraisalLeft > 0 && next.Progress >= craft.CraftProgress)
             next.Progress = craft.CraftProgress - 1;
@@ -234,7 +242,7 @@ public static class Simulator
         var cost = action switch
         {
             Skills.BasicSynthesis or Skills.CarefulSynthesis or Skills.RapidSynthesis or Skills.IntensiveSynthesis or Skills.MuscleMemory => 10,
-            Skills.BasicTouch or Skills.StandardTouch or Skills.AdvancedTouch or Skills.HastyTouch or Skills.PreciseTouch or Skills.Reflect => 10,
+            Skills.BasicTouch or Skills.StandardTouch or Skills.AdvancedTouch or Skills.HastyTouch or Skills.PreciseTouch or Skills.Reflect or Skills.RefinedTouch => 10,
             Skills.ByregotsBlessing or Skills.DelicateSynthesis => 10,
             Skills.Groundwork or Skills.PreparatoryTouch => 20,
             Skills.PrudentSynthesis or Skills.PrudentTouch => 5,
@@ -275,11 +283,12 @@ public static class Simulator
         Skills.HeartAndSoul => step.HeartAndSoulAvailable,
         Skills.TrainedPerfection => step.TrainedPerfectionAvailable,
         Skills.DaringTouch => step.ExpedienceLeft > 0,
-        Skills.QuickInnovation => step.QuickInnoAvailable && step.InnovationLeft == 0,
+        Skills.QuickInnovation => step.QuickInnoLeft > 0 && step.InnovationLeft == 0,
+        Skills.MaterialMiracle => step.MaterialMiracleCharges > 0 && !step.MaterialMiracleActive,
         _ => true
     } && craft.StatLevel >= MinLevel(action) && step.RemainingCP >= GetCPCost(step, action);
 
-    public static bool SkipUpdates(Skills action) => action is Skills.CarefulObservation or Skills.FinalAppraisal or Skills.HeartAndSoul;
+    public static bool SkipUpdates(Skills action) => action is Skills.CarefulObservation or Skills.FinalAppraisal or Skills.HeartAndSoul or Skills.MaterialMiracle;
     public static bool ConsumeHeartAndSoul(Skills action) => action is Skills.IntensiveSynthesis or Skills.PreciseTouch or Skills.TricksOfTrade;
 
     public static double GetSuccessRate(StepState step, Skills action)
@@ -341,7 +350,7 @@ public static class Simulator
         var cost = action switch
         {
             Skills.BasicSynthesis or Skills.CarefulSynthesis or Skills.RapidSynthesis or Skills.IntensiveSynthesis or Skills.MuscleMemory => 10,
-            Skills.BasicTouch or Skills.StandardTouch or Skills.AdvancedTouch or Skills.HastyTouch or Skills.DaringTouch or Skills.PreciseTouch or Skills.Reflect => 10,
+            Skills.BasicTouch or Skills.StandardTouch or Skills.AdvancedTouch or Skills.HastyTouch or Skills.DaringTouch or Skills.PreciseTouch or Skills.Reflect or Skills.RefinedTouch => 10,
             Skills.ByregotsBlessing or Skills.DelicateSynthesis => 10,
             Skills.Groundwork or Skills.PreparatoryTouch => 20,
             Skills.PrudentSynthesis or Skills.PrudentTouch => 5,
@@ -410,9 +419,9 @@ public static class Simulator
 
         float condMod = step.Condition switch
         {
-            Condition.高品质 => craft.Splendorous ? 1.75f : 1.5f,
-            Condition.最高品质 => 4,
-            Condition.低品质 => 0.5f,
+            Condition.Good => craft.SplendorCosmic ? 1.75f : 1.5f,
+            Condition.Excellent => 4,
+            Condition.Poor => 0.5f,
             _ => 1
         };
         return (int)(BaseQuality(craft) * condMod * effPotency / 100);
@@ -424,6 +433,12 @@ public static class Simulator
     {
         if (step.PrevComboAction == Skills.BasicTouch && craft.StatLevel >= MinLevel(Skills.StandardTouch)) return Skills.StandardTouch;
         if (step.PrevComboAction == Skills.StandardTouch && craft.StatLevel >= MinLevel(Skills.AdvancedTouch)) return Skills.AdvancedTouch;
+        return Skills.BasicTouch;
+    }
+
+    internal static Skills NextTouchComboRefined(StepState step, CraftState craft)
+    {
+        if (step.PrevComboAction == Skills.BasicTouch && craft.StatLevel >= MinLevel(Skills.RefinedTouch)) return Skills.RefinedTouch;
         return Skills.BasicTouch;
     }
 

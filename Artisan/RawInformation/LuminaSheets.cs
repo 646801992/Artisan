@@ -1,18 +1,12 @@
-﻿using Artisan.QuestSync;
-using Artisan.RawInformation.Character;
-using Dalamud.Game;
-using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Utility;
+﻿using Artisan.RawInformation.Character;
 using ECommons;
 using ECommons.DalamudServices;
-using FFXIVClientStructs.FFXIV.Client.Game;
-using Lumina.Data;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Action = Lumina.Excel.GeneratedSheets.Action;
-using Status = Lumina.Excel.GeneratedSheets.Status;
+using Action = Lumina.Excel.Sheets.Action;
+using Status = Lumina.Excel.Sheets.Status;
 
 namespace Artisan.RawInformation
 {
@@ -20,6 +14,8 @@ namespace Artisan.RawInformation
     {
 
         public static Dictionary<uint, Recipe>? RecipeSheet;
+
+        public static ILookup<string, Recipe>? recipeLookup;
 
         public static Dictionary<uint, GatheringItem>? GatheringItemSheet;
 
@@ -38,8 +34,6 @@ namespace Artisan.RawInformation
         public static Dictionary<uint, Status>? StatusSheet;
 
         public static Dictionary<uint, CraftAction>? CraftActions;
-
-        public static Dictionary<uint, CraftLevelDifference>? CraftLevelDifference;
 
         public static Dictionary<uint, RecipeLevelTable>? RecipeLevelTableSheet;
 
@@ -66,11 +60,15 @@ namespace Artisan.RawInformation
         public static void Init()
         {
             RecipeSheet = Svc.Data?.GetExcelSheet<Recipe>()?
-           .Where(x => x.ItemResult.Row > 0)
+           .Where(x => x.ItemResult.RowId > 0)
                 .DistinctBy(x => x.RowId)
                 .OrderBy(x => x.RecipeLevelTable.Value.ClassJobLevel)
-                .ThenBy(x => x.ItemResult.Value.Name.RawString)
+                .ThenBy(x => x.ItemResult.Value.Name.ToDalamudString().ToString())
                 .ToDictionary(x => x.RowId, x => x);
+
+            // Preprocess the recipe data into a lookup table (ILookup) for faster access.
+            recipeLookup = LuminaSheets.RecipeSheet.Values
+                .ToLookup(x => x.ItemResult.Value.Name.ToDalamudString().ToString());
 
             GatheringItemSheet = Svc.Data?.GetExcelSheet<GatheringItem>()?
                 .Where(x => x.GatheringItemLevel.Value.GatheringItemLevel > 0)
@@ -101,9 +99,6 @@ namespace Artisan.RawInformation
                        .ToDictionary(i => i.RowId, i => i);
 
             CraftActions = Svc.Data?.GetExcelSheet<CraftAction>()?
-                       .ToDictionary(i => i.RowId, i => i);
-
-            CraftLevelDifference = Svc.Data?.GetExcelSheet<CraftLevelDifference>()?
                        .ToDictionary(i => i.RowId, i => i);
 
             RecipeLevelTableSheet = Svc.Data?.GetExcelSheet<RecipeLevelTable>()?
@@ -156,11 +151,12 @@ namespace Artisan.RawInformation
 
     public static class SheetExtensions
     {
-        public static string NameOfAction(this Skills skill)
+        public static string NameOfAction(this Skills skill, bool raphParseEn = false)
         {
             if (skill == Skills.TouchCombo) return "Touch Combo";
+            if (skill == Skills.TouchComboRefined) return "Touch Combo (Refined Touch Route)";
             var id = skill.ActionId(ECommons.ExcelServices.Job.CRP);
-            return id == 0 ? "Artisan 建议" : id < 100000 ? LuminaSheets.ActionSheet[id].Name.RawString : LuminaSheets.CraftActions[id].Name.RawString;
+            return id == 0 ? "Artisan 建议" : id < 100000 ? Svc.Data.GetExcelSheet<Action>(raphParseEn ? Dalamud.Game.ClientLanguage.English : Svc.ClientState.ClientLanguage)[id].Name.ToString() : Svc.Data.GetExcelSheet<CraftAction>(raphParseEn ? Dalamud.Game.ClientLanguage.English : Svc.ClientState.ClientLanguage)[id].Name.ToString();
         }
 
         public static ushort IconOfAction(this Skills skill, ECommons.ExcelServices.Job job)
@@ -178,7 +174,7 @@ namespace Artisan.RawInformation
         public static string GetSkillDescription(this Skills skill)
         {
             var id = skill.ActionId(ECommons.ExcelServices.Job.CRP);
-            string description = id == 0 ? "" : id < 100000 ? Svc.Data.Excel.GetSheet<ActionTransient>().GetRow(id).Description : LuminaSheets.CraftActions[id].Description;
+            string description = id == 0 ? "" : id < 100000 ? Svc.Data.Excel.GetSheet<ActionTransient>().GetRow(id).Description.ToDalamudString().ToString() : LuminaSheets.CraftActions[id].Description.ToDalamudString().ToString();
             description = skill switch
             {
                 Skills.BasicSynthesis => description.Replace($": %", $": 100%/120%").Replace($"効率：", $"効率：100/120").Replace($"Effizienz: ", $"Effizienz: 100/120"),
@@ -193,7 +189,7 @@ namespace Artisan.RawInformation
         {
             if (id == 0) return "";
 
-            return LuminaSheets.StatusSheet[id].Name.RawString;
+            return LuminaSheets.StatusSheet[id].Name.ToString();
         }
 
         public static string NameOfItem(this uint id)
@@ -209,7 +205,7 @@ namespace Artisan.RawInformation
             if (!LuminaSheets.RecipeSheet.ContainsKey(id))
                 return "";
 
-            return LuminaSheets.RecipeSheet[id].ItemResult.Value.Name.RawString;
+            return LuminaSheets.RecipeSheet[id].ItemResult.Value.Name.ToDalamudString().ToString();
         }
 
         public static string NameOfQuest(this ushort id)
@@ -220,95 +216,42 @@ namespace Artisan.RawInformation
             if (id > 0)
             {
                 var digits = id.ToString().Length;
-                if (LuminaSheets.QuestSheet!.Any(x => Convert.ToInt16(x.Value.Id.RawString.GetLast(digits)) == id))
+                if (LuminaSheets.QuestSheet!.Any(x => Convert.ToInt16(x.Value.Id.ToString().GetLast(digits)) == id))
                 {
-                    return LuminaSheets.QuestSheet!.First(x => Convert.ToInt16(x.Value.Id.RawString.GetLast(digits)) == id).Value.Name.ExtractText().Replace("", "").Trim();
+                    return LuminaSheets.QuestSheet!.First(x => Convert.ToInt16(x.Value.Id.ToString().GetLast(digits)) == id).Value.Name.ExtractText().Replace("", "").Trim();
                 }
             }
             return "";
 
         }
 
-        public static unsafe string GetSequenceInfo(this ushort id)
+        public static bool MissionHasMaterialMiracle(this Recipe recipe)
         {
-            if (id > 0)
+            try
             {
-                var digits = id.ToString().Length;
-                if (LuminaSheets.QuestSheet!.Any(x => Convert.ToInt16(x.Value.Id.RawString.GetLast(digits)) == id))
-                {
-                    var quest = LuminaSheets.QuestSheet!.First(x => Convert.ToInt16(x.Value.Id.RawString.GetLast(digits)) == id).Value;
-                    var sequence = QuestManager.GetQuestSequence(id);
-                    if (sequence == 255) return "NULL";
 
-                    var lang = Svc.ClientState.ClientLanguage switch
-                    {
-                        ClientLanguage.English => Language.English,
-                        ClientLanguage.Japanese => Language.Japanese,
-                        ClientLanguage.German => Language.German,
-                        ClientLanguage.French => Language.French,
-                        ClientLanguage.ChineseSimplified => Language.ChineseSimplified,
-                        _ => Language.English,
-                    };
+                Svc.Data.GameData.Options.PanicOnSheetChecksumMismatch = false;
+                var id = recipe.RowId;
+                //First, find the MissionRecipe with our recipe
+                var missionRec = Svc.Data.GetExcelSheet<WKSMissionRecipe>().FirstOrDefault(missionRec => missionRec.Recipe.Any(recipe =>  recipe.RowId == id));
+                //Bail if there's no MissionRecipe (this isn't a Cosmic Craft)
+                if (missionRec.RowId == 0)
+                    return false;
+                
+                //Next, find the MissionUnit that has our MissionRecipe row
+                var missionUnit = Svc.Data.GetExcelSheet<WKSMissionUnit>().First(missionUnit => missionUnit.WKSMissionRecipe == (ushort)missionRec.RowId);
 
-                    var path = $"quest/{id.ToString("00000")[..3]}/{quest.Id.RawString}";
-                    // FIXME: this is gross, but lumina caches incorrectly
-                    Svc.Data.Excel.RemoveSheetFromCache<QuestData>();
-                    var sheet = Svc.Data.Excel.GetSheet<QuestData>(path);
-                    var seqPath = $"SEQ_{sequence.ToString("00")}";
-                    var firstData = sheet?.Where(x => x.Id.Contains(seqPath)).FirstOrDefault();
-                    if (firstData != null)
-                    {
-                        return firstData.Text.ExtractText();
-                    }
-                }
+                //Get the MissionToDo from the MissionUnit
+                var missionToDo = Svc.Data.GetExcelSheet<WKSMissionToDo>().GetRow(missionUnit.Unknown7);
+
+                //Svc.Log.Verbose($"{id} -> {missionRec.RowId} -> {missionUnit.RowId} -> {missionToDo.RowId} -> {missionToDo.Unknown0}");
+                return missionToDo.Unknown0 == (uint)Skills.MaterialMiracle;
             }
-            return "";
-        }
-
-        public static bool ItemHasRecipe(this int id)
-        {
-            return LuminaSheets.RecipeSheet.Values.Any(x => x.ItemResult.Row == id);
-        }
-
-        public static string GetToDoInfo(this ushort id)
-        {
-            if (id > 0)
+            catch (Exception e)
             {
-                var digits = id.ToString().Length;
-                if (LuminaSheets.QuestSheet!.Any(x => Convert.ToInt16(x.Value.Id.RawString.GetLast(digits)) == id))
-                {
-                    var quest = LuminaSheets.QuestSheet!.First(x => Convert.ToInt16(x.Value.Id.RawString.GetLast(digits)) == id).Value;
-
-                    var lang = Svc.ClientState.ClientLanguage switch
-                    {
-                        ClientLanguage.English => Language.English,
-                        ClientLanguage.Japanese => Language.Japanese,
-                        ClientLanguage.German => Language.German,
-                        ClientLanguage.French => Language.French,
-                        ClientLanguage.ChineseSimplified => Language.ChineseSimplified,
-                        _ => Language.English,
-                    };
-
-                    var path = $"quest/{id.ToString("00000")[..3]}/{quest.Id.RawString}";
-                    // FIXME: this is gross, but lumina caches incorrectly
-                    Svc.Data.Excel.RemoveSheetFromCache<QuestData>();
-                    var sheet = Svc.Data.Excel.GetSheet<QuestData>(path);
-                    var seqPath = $"TODO_";
-                    var firstData = sheet?.Where(x => x.Id.Contains(seqPath)).ToList();
-                    string output = "";
-                    foreach (var step in firstData?.Where(x => x.Text.Payloads.Count > 0))
-                    {
-                        foreach (var payload in step.Text?.ToDalamudString().Payloads.Where(x => x.Type == PayloadType.Unknown))
-                        {
-                            var line = step.Text.RawString[10..];
-                            output += line;
-                        }
-                    }
-                    return output;
-
-                }
+                Svc.Log.Error($"Error in MissionHasMaterialMiracle: {e}");
+                return false;
             }
-            return "";
         }
     }
 }

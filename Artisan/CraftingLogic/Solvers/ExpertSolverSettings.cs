@@ -44,6 +44,7 @@ public class ExpertSolverSettings
     public bool MidObserveGoodOmenForTricks = false; // if true, we'll observe on good omen where otherwise we'd use tricks on good
     public bool FinisherBaitGoodByregot = true; // if true, use careful observations to try baiting good byregot
     public bool EmergencyCPBaitGood = false; // if true, we allow spending careful observations to try baiting good for tricks when we really lack cp
+    public bool UseMaterialMiracle = false;
 
     [NonSerialized]
     public IDalamudTextureWrap? expertIcon;
@@ -109,9 +110,10 @@ public class ExpertSolverSettings
         }
         ImGui.Unindent();
         changed |= ImGui.Checkbox("最大化重建伊修加德配方的品质，而不仅仅是达到最大收藏品价值阈值", ref MaxIshgardRecipes);
-        ImGuiComponents.HelpMarker("这将尝试最大化品质，以赚取更多技巧点");
-        changed |= ImGui.Checkbox($"收尾: 使用 {Skills.CarefulObservation.NameOfAction()} 尝试触发 {Condition.高品质.ToLocalizedString()} {ConditionString}，以便使用 {Skills.ByregotsBlessing.NameOfAction()}", ref FinisherBaitGoodByregot);
-        changed |= ImGui.Checkbox($"紧急情况: 如果 制作力 极低，使用 {Skills.CarefulObservation.NameOfAction()} 尝试触发 {Condition.高品质.ToLocalizedString()} {ConditionString} ，以便使用 {Skills.TricksOfTrade.NameOfAction()}", ref EmergencyCPBaitGood);
+        ImGuiComponents.HelpMarker("这将尝试最大化品质，以赚取更多技巧点.");
+        changed |= ImGui.Checkbox($"收尾: 使用 {Skills.CarefulObservation.NameOfAction()} 尝试触发 {Condition.Good.ToLocalizedString()} {ConditionString} 以便使用 {Skills.ByregotsBlessing.NameOfAction()}", ref FinisherBaitGoodByregot);
+        changed |= ImGui.Checkbox($"紧急情况: 如果 制作力 极低，使用 {Skills.CarefulObservation.NameOfAction()} 尝试触发 {Condition.Good.ToLocalizedString()} {ConditionString} 以便使用 {Skills.TricksOfTrade.NameOfAction()}", ref EmergencyCPBaitGood);
+        changed |= ImGui.Checkbox($"在宇宙探索中使用（材料奇迹？）", ref UseMaterialMiracle);
         if (ImGuiEx.ButtonCtrl("将专家求解器设置重置为默认值"))
         {
             P.Config.ExpertSolverConfig = new();

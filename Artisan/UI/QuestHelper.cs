@@ -4,7 +4,6 @@ using Artisan.GameInterop;
 using Artisan.QuestSync;
 using Artisan.RawInformation;
 using Dalamud.Interface.Windowing;
-using ECommons;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using ImGuiNET;
 using System;
@@ -64,7 +63,7 @@ namespace Artisan.UI
                                 if (Crafting.CurState is Crafting.State.IdleNormal or Crafting.State.IdleBetween)
                                 {
                                     var recipe = LuminaSheets.RecipeSheet[QuestList.GetRecipeForQuest((ushort)quest.Key)];
-                                    PreCrafting.Tasks.Add((() => PreCrafting.TaskSelectRecipe(recipe), TimeSpan.FromSeconds(5)));
+                                    PreCrafting.Tasks.Add((() => PreCrafting.TaskSelectRecipe(recipe), TimeSpan.FromMilliseconds(500)));
                                 }
                             }
                         }

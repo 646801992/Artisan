@@ -1,5 +1,4 @@
-﻿using Artisan.RawInformation.Character;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Skills = Artisan.RawInformation.Character.Skills;
 
 namespace Artisan.CraftingLogic;
@@ -9,7 +8,10 @@ public interface ISolverDefinition
 {
     public record struct Desc(ISolverDefinition Def, int Flavour, int Priority, string Name, string UnsupportedReason = "")
     {
-        public Solver? CreateSolver(CraftState craft) => this == default ? null : Def.Create(craft, Flavour);
+        public Solver? CreateSolver(CraftState craft)
+        {
+            return this == default ? null : Def.Create(craft, Flavour);
+        }
     }
 
     public IEnumerable<Desc> Flavours(CraftState craft);
@@ -23,6 +25,11 @@ public abstract class Solver
 
     public virtual Solver Clone() => (Solver)MemberwiseClone(); // shallow copy by default
     public abstract Recommendation Solve(CraftState craft, StepState step); // note that this function potentially mutates state!
+}
+
+public interface ICraftValidator
+{
+    public bool Validate(CraftState craft);
 }
 
 // a simple wrapper around solver that allows creating clones on-demand, but does not allow calling solve directly
